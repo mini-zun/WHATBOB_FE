@@ -4,6 +4,7 @@ export const Colors = {
   textSecondary: '#777777',
   textMuted: '#AAA39C',
   kakaoYellow: '#FEE500',
+  errorText: '#B42318',
 }
 
 export const Fonts = {
