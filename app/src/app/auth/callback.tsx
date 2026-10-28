@@ -22,7 +22,7 @@ export default function KakaoCallbackScreen() {
                     throw new Error('로그인 정보가 누락되었습니다. 다시 로그인해 주세요.');
                 }
                 await completeKakaoLogin(code, state);
-                if (active) router.replace('/home');
+                if (active) router.replace('/non_preference_food');
             } catch (failure) {
                 if (active) setErrorMessage(failure instanceof Error ? failure.message : '로그인에 실패했습니다.');
             }
