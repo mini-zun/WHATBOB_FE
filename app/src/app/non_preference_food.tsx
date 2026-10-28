@@ -12,7 +12,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { router } from 'expo-router';
 import { Colors, Fonts } from '@/constants/theme';
 
 const FOODS = [
@@ -79,9 +79,11 @@ export default function FoodPreferencesScreen() {
     };
 
     const handleSkip = () => {
+        router.replace('/home');
     };
 
     const handleComplete = () => {
+        router.replace('/home');
     };
 
     return (
