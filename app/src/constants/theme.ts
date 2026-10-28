@@ -10,4 +10,5 @@ export const Colors = {
 export const Fonts = {
   brand: 'Cafe24Ssurround',
   bodyBold: 'PretendardBold',
+  nonpreferencefood: 'BusanDandiMyeongjoM'
 } as const;
