@@ -1,11 +1,38 @@
 import { Image } from 'expo-image';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors, Fonts } from '@/constants/theme';
+import { getKakaoLoginUrl } from '@/lib/auth';
+import { prepareKakaoLogin } from '@/lib/web-auth';
 
 export default function LoginScreen() {
     const insets = useSafeAreaInsets();
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const loginInProgress = useRef(false);
+
+    const handleKakaoLogin = async () => {
+        if (loginInProgress.current) return;
+        loginInProgress.current = true;
+        setIsLoggingIn(true);
+        setErrorMessage(null);
+
+        try {
+            if (Platform.OS !== 'web') {
+                throw new Error('현재는 웹에서 카카오 로그인을 이용해 주세요.');
+            }
+            const state = window.crypto.randomUUID();
+            const loginUrl = await getKakaoLoginUrl(state);
+            window.location.assign(prepareKakaoLogin(loginUrl));
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : '로그인을 시작하지 못했습니다.');
+        } finally {
+            loginInProgress.current = false;
+            setIsLoggingIn(false);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.safeArea}>
@@ -29,13 +56,20 @@ export default function LoginScreen() {
                     <Pressable
                         accessibilityRole='button'
                         accessibilityLabel='카카오 로그인'
-                        disabled
+                        onPress={handleKakaoLogin}
+                        disabled={isLoggingIn}
+                        accessibilityState={{ disabled: isLoggingIn, busy: isLoggingIn }}
                         style={styles.kakaoButton}>
-                            <View style={styles.kakaoIcon}>
-                                <View style={styles.kakaoIconTail} />
-                            </View>
-                            <Text style={styles.kakaoButtonText}>카카오 로그인</Text>
+                        <Image
+                            source={require('@/assets/images/kakao_login_button.png')}
+                            contentFit='contain'
+                            style={styles.kakaoButtonImage}
+                        />
                     </Pressable>
+                    {isLoggingIn && <ActivityIndicator color={Colors.maintext} style={styles.feedback} />}
+                    {errorMessage && (
+                        <Text accessibilityRole="alert" style={styles.errorMessage}>{errorMessage}</Text>
+                    )}
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -90,35 +124,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     kakaoButton: {
-        width: 290,
-        maxWidth: '100%',
-        height: 55,
-        borderRadius: 30,
-        backgroundColor: Colors.kakaoYellow,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8.6,
+        width: '100%',
+        maxWidth: 336,
     },
-    kakaoIcon: {
-        width: 24,
-        height: 20,
-        borderRadius: 12,
-        backgroundColor: Colors.maintext,
+    kakaoButtonImage: {
+        width: '100%',
+        aspectRatio: 336 / 69,
     },
-    kakaoIconTail: {
-        position: 'absolute',
-        left: 4,
-        bottom: -2,
-        width: 7,
-        height: 7,
-        backgroundColor: Colors.maintext,
-        transform: [{ rotate: '45deg' }],
+    feedback: {
+        marginTop: 12,
     },
-    kakaoButtonText: {
-        fontFamily: Fonts.bodyBold,
-        fontSize: 20.27,
-        lineHeight: 24,
-        color: Colors.maintext,
-    }
-})
+    errorMessage: {
+        marginTop: 12,
+        color: Colors.errorText,
+        textAlign: 'center',
+    },
+});

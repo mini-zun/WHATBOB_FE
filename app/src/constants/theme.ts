@@ -5,6 +5,7 @@ export const Colors = {
   textMuted: "#AAA39C",
   textBrown: "#6A3907",
   kakaoYellow: "#FEE500",
+  errorText: '#B42318',
   cardYellow: "#FFEFB1",
   cardPink: "#FBE5D2",
   cardGreen: "#E5E9D4",
@@ -21,4 +22,5 @@ export const Fonts = {
   brand: "Cafe24Ssurround",
   bodyBold: "PretendardBold",
   bodyDesc: "Cafe24Simplehae",
+  nonpreferencefood: 'BusanDandiMyeongjoM'
 } as const;
