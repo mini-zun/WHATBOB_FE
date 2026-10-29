@@ -31,6 +31,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
     router.replace("/non_preference_food");
   };
 
+  const handleToFoodHistory = () => {
+    router.replace("/food_history");
+  };
+
   useEffect(() => {
     if (!visible) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -74,7 +78,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           menuTitle="기록 모아보기"
           menuIcon="calendar"
           menuIconColor="orange"
-          onPress={() => console.log("기록 모음 메뉴 이동")}
+          onPress={handleToFoodHistory}
         />
         <View style={styles.menuEnd} />
 
