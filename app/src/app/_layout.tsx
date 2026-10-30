@@ -14,8 +14,8 @@ export default function RootLayout() {
     Cafe24Ssurround: require("../../assets/fonts/Cafe24Ssurround-v2.0.otf"),
     Cafe24Simplehae: require("../../assets/fonts/Cafe24Simplehae-v2.0.otf"),
     PretendardBold: require("../../assets/fonts/Pretendard-Bold.otf"),
-    BusanDandiMyeongjoM: require('../../assets/fonts/BusanDandiMyeongjoM.otf')
-
+    PretendardSemiBold: require("../../assets/fonts/Pretendard-SemiBold.otf"),
+    BusanDandiMyeongjoM: require("../../assets/fonts/BusanDandiMyeongjoM.otf"),
   });
 
   useEffect(() => {

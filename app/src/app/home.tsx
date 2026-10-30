@@ -9,100 +9,107 @@ import { Colors, Fonts } from "@/constants/theme";
 import { Feather, MaterialIcons } from "@expo/vector-icons";
 import { MenuCarousel } from "@/components/home/MenuCarousel";
 
+import { useState } from "react";
+import { SideMenuDrawer } from "@/components/home/SideMenuDrawer";
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.page} bounces={false}>
-        <View style={styles.header}>
-          <Image
-            source={require("@/assets/images/logo_with_text.png")}
-            contentFit="contain"
-            style={styles.topLogo}
-          />
-          <Pressable>
-            <Feather name="menu" size={35} />
-          </Pressable>
-        </View>
-        <View style={styles.hero}>
-          <Image
-            source={require("@/assets/images/main_title.png")}
-            contentFit="contain"
-            style={styles.mainTitle}
-          />
-
-          <MenuCarousel />
-
-          <View style={styles.content}>
-            <View style={styles.smallButtonRow}>
-              <Pressable style={styles.smallPinkButton}>
-                <View style={styles.horizontalView}>
-                  <Image
-                    source={require("@/assets/images/with_friend_icon.png")}
-                    contentFit="contain"
-                    style={styles.smallButtonIcon}
-                  />
-                  <Text style={styles.smallButtonText}>
-                    {`친구와\n같이 고르기`}
-                  </Text>
-                  <MaterialIcons
-                    name="keyboard-arrow-right"
-                    size={26}
-                    color={Colors.darkBrown}
-                  />
-                </View>
-              </Pressable>
-              <Pressable style={styles.smallGreyButton}>
-                <View style={styles.horizontalView}>
-                  <Image
-                    source={require("@/assets/images/recent_icon.png")}
-                    contentFit="contain"
-                    style={styles.smallButtonIcon}
-                  />
-                  <Text style={styles.smallButtonText}>
-                    {`내가 먹은 음식\n모아보기`}
-                  </Text>
-                  <MaterialIcons
-                    name="keyboard-arrow-right"
-                    size={26}
-                    color={Colors.darkBrown}
-                  />
-                </View>
-              </Pressable>
-            </View>
-
-            <Text style={styles.smallMenuText}>최근에 먹은 메뉴</Text>
-            <ScrollView
-              horizontal
-              style={styles.menuList}
-              contentContainerStyle={styles.menuContent}
-              showsHorizontalScrollIndicator={false}
-            >
-              <View style={styles.menuBg}></View>
-              <View style={styles.menuBg}></View>
-              <View style={styles.menuBg}></View>
-              <View style={styles.menuBg}></View>
-            </ScrollView>
-            <View style={styles.menusTitleView}>
-              <Text style={styles.smallMenuText}>요즘 인기 메뉴</Text>
-              <Text style={styles.smallMenuText}>+</Text>
-            </View>
-            <ScrollView
-              horizontal
-              style={styles.menuList}
-              contentContainerStyle={styles.menuContent}
-              showsHorizontalScrollIndicator={false}
-            >
-              <View style={styles.menuBg}></View>
-              <View style={styles.menuBg}></View>
-              <View style={styles.menuBg}></View>
-              <View style={styles.menuBg}></View>
-            </ScrollView>
+    <View style={{ flex: 1 }}>
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView contentContainerStyle={styles.page} bounces={false}>
+          <View style={styles.header}>
+            <Image
+              source={require("@/assets/images/logo_with_text.png")}
+              contentFit="contain"
+              style={styles.topLogo}
+            />
+            <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
+              <Feather name="menu" size={35} />
+            </Pressable>
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          <View style={styles.hero}>
+            <Image
+              source={require("@/assets/images/main_title.png")}
+              contentFit="contain"
+              style={styles.mainTitle}
+            />
+
+            <MenuCarousel />
+
+            <View style={styles.content}>
+              <View style={styles.smallButtonRow}>
+                <Pressable style={styles.smallPinkButton}>
+                  <View style={styles.horizontalView}>
+                    <Image
+                      source={require("@/assets/images/with_friend_icon.png")}
+                      contentFit="contain"
+                      style={styles.smallButtonIcon}
+                    />
+                    <Text style={styles.smallButtonText}>
+                      {`친구와\n같이 고르기`}
+                    </Text>
+                    <MaterialIcons
+                      name="keyboard-arrow-right"
+                      size={26}
+                      color={Colors.darkBrown}
+                    />
+                  </View>
+                </Pressable>
+                <Pressable style={styles.smallGreyButton}>
+                  <View style={styles.horizontalView}>
+                    <Image
+                      source={require("@/assets/images/recent_icon.png")}
+                      contentFit="contain"
+                      style={styles.smallButtonIcon}
+                    />
+                    <Text style={styles.smallButtonText}>
+                      {`내가 먹은 음식\n모아보기`}
+                    </Text>
+                    <MaterialIcons
+                      name="keyboard-arrow-right"
+                      size={26}
+                      color={Colors.darkBrown}
+                    />
+                  </View>
+                </Pressable>
+              </View>
+
+              <Text style={styles.smallMenuText}>최근에 먹은 메뉴</Text>
+              <ScrollView
+                horizontal
+                style={styles.menuList}
+                contentContainerStyle={styles.menuContent}
+                showsHorizontalScrollIndicator={false}
+              >
+                <View style={styles.menuBg}></View>
+                <View style={styles.menuBg}></View>
+                <View style={styles.menuBg}></View>
+                <View style={styles.menuBg}></View>
+              </ScrollView>
+              <View style={styles.menusTitleView}>
+                <Text style={styles.smallMenuText}>요즘 인기 메뉴</Text>
+                <Text style={styles.smallMenuText}>+</Text>
+              </View>
+              <ScrollView
+                horizontal
+                style={styles.menuList}
+                contentContainerStyle={styles.menuContent}
+                showsHorizontalScrollIndicator={false}
+              >
+                <View style={styles.menuBg}></View>
+                <View style={styles.menuBg}></View>
+                <View style={styles.menuBg}></View>
+                <View style={styles.menuBg}></View>
+              </ScrollView>
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+      <SideMenuDrawer visible={menuOpen} onClose={() => setMenuOpen(false)} />
+    </View>
   );
 }
 
