@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   SafeAreaView,
@@ -37,7 +38,13 @@ export default function HomeScreen() {
               style={styles.mainTitle}
             />
 
-            <MenuCarousel />
+            <MenuCarousel
+              onStart={(item) => {
+                if (item.key === "form") {
+                  router.push("/ordersheet");
+                }
+              }}
+            />
 
             <View style={styles.content}>
               <View style={styles.smallButtonRow}>
