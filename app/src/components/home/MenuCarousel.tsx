@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -174,43 +174,45 @@ function CarouselCard({
     <Animated.View
       style={[styles.card, { backgroundColor: item.bg }, cardStyle]}
     >
-      <Animated.View
+      {/* Animated.View는 웹에서 스타일을 인라인으로 풀어 box-none이 무시되므로 일반 View에 둠 */}
+      <View
         style={[
-          styles.centerFace,
-          centerFaceStyle,
-          { pointerEvents: isCenter ? "box-none" : "none" },
+          StyleSheet.absoluteFill,
+          isCenter ? pointerStyles.boxNone : pointerStyles.none,
         ]}
         aria-hidden={!isCenter}
       >
-        <Image
-          style={styles.centerImage}
-          source={item.image}
-          contentFit="contain"
-        />
-        <Text style={styles.title} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-          {item.title}
-        </Text>
-        <Text style={styles.desc} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-          {item.desc}
-        </Text>
-        <Pressable
-          role="button"
-          aria-label={`${item.title} 시작하기`}
-          onPress={() => onStart?.(item)}
-          style={({ pressed }) => [styles.startBtn, pressed && styles.pressed]}
-        >
-          <Text style={styles.startText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-            시작하기
+        <Animated.View style={[styles.centerFace, centerFaceStyle]}>
+          <Image
+            style={styles.centerImage}
+            source={item.image}
+            contentFit="contain"
+          />
+          <Text style={styles.title} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+            {item.title}
           </Text>
-          <Feather name="chevron-right" size={15 * k} color={Colors.white} />
-        </Pressable>
-      </Animated.View>
+          <Text style={styles.desc} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+            {item.desc}
+          </Text>
+          <Pressable
+            role="button"
+            aria-label={`${item.title} 시작하기`}
+            onPress={() => onStart?.(item)}
+            style={({ pressed }) => [styles.startBtn, pressed && styles.pressed]}
+          >
+            <Text style={styles.startText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+              시작하기
+            </Text>
+            <Feather name="chevron-right" size={15 * k} color={Colors.white} />
+          </Pressable>
+        </Animated.View>
+      </View>
 
       <Animated.View
         style={[
           styles.sideFace,
           sideFaceStyle,
-          { pointerEvents: isCenter ? "none" : "auto" },
+          isCenter ? pointerStyles.none : pointerStyles.auto,
         ]}
         aria-hidden={isCenter}
       >
@@ -269,7 +271,11 @@ export function MenuCarousel({
 }) {
   const n = CARDS.length;
   const { width } = useWindowDimensions();
-  const k = Math.min(width, MAX_STAGE_W) / BASE_W;
+  // 웹 정적 빌드는 너비 0으로 미리 렌더링되고, 하이드레이션 때 스타일 차이는 반영되지 않음.
+  // 마운트 전에는 서버와 같은 기준 너비로 그리고, 마운트 후 실제 너비로 다시 그림
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const k = Math.min(mounted ? width : BASE_W, MAX_STAGE_W) / BASE_W;
   const styles = useMemo(() => createStyles(k), [k]);
   const gapPx = CARD_GAP * k;
 
@@ -350,6 +356,13 @@ export function MenuCarousel({
     </View>
   );
 }
+
+// 웹에서 인라인 "box-none"은 잘못된 CSS 값이라 무시되므로 StyleSheet로 정의
+const pointerStyles = StyleSheet.create({
+  auto: { pointerEvents: "auto" },
+  boxNone: { pointerEvents: "box-none" },
+  none: { pointerEvents: "none" },
+});
 
 const ARROW_BG = "rgba(106, 57, 7, 0.13)";
 const ARROW_BG_PRESSED = "rgba(106, 57, 7, 0.24)";
