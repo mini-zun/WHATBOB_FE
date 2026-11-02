@@ -174,7 +174,6 @@ function CarouselCard({
     <Animated.View
       style={[styles.card, { backgroundColor: item.bg }, cardStyle]}
     >
-      {/* Animated.View는 웹에서 스타일을 인라인으로 풀어 box-none이 무시되므로 일반 View에 둠 */}
       <View
         style={[
           StyleSheet.absoluteFill,
@@ -271,8 +270,6 @@ export function MenuCarousel({
 }) {
   const n = CARDS.length;
   const { width } = useWindowDimensions();
-  // 웹 정적 빌드는 너비 0으로 미리 렌더링되고, 하이드레이션 때 스타일 차이는 반영되지 않음.
-  // 마운트 전에는 서버와 같은 기준 너비로 그리고, 마운트 후 실제 너비로 다시 그림
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const k = Math.min(mounted ? width : BASE_W, MAX_STAGE_W) / BASE_W;
@@ -357,7 +354,6 @@ export function MenuCarousel({
   );
 }
 
-// 웹에서 인라인 "box-none"은 잘못된 CSS 값이라 무시되므로 StyleSheet로 정의
 const pointerStyles = StyleSheet.create({
   auto: { pointerEvents: "auto" },
   boxNone: { pointerEvents: "box-none" },
