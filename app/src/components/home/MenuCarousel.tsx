@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -174,43 +174,44 @@ function CarouselCard({
     <Animated.View
       style={[styles.card, { backgroundColor: item.bg }, cardStyle]}
     >
-      <Animated.View
+      <View
         style={[
-          styles.centerFace,
-          centerFaceStyle,
-          { pointerEvents: isCenter ? "box-none" : "none" },
+          StyleSheet.absoluteFill,
+          isCenter ? pointerStyles.boxNone : pointerStyles.none,
         ]}
         aria-hidden={!isCenter}
       >
-        <Image
-          style={styles.centerImage}
-          source={item.image}
-          contentFit="contain"
-        />
-        <Text style={styles.title} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-          {item.title}
-        </Text>
-        <Text style={styles.desc} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-          {item.desc}
-        </Text>
-        <Pressable
-          role="button"
-          aria-label={`${item.title} 시작하기`}
-          onPress={() => onStart?.(item)}
-          style={({ pressed }) => [styles.startBtn, pressed && styles.pressed]}
-        >
-          <Text style={styles.startText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-            시작하기
+        <Animated.View style={[styles.centerFace, centerFaceStyle]}>
+          <Image
+            style={styles.centerImage}
+            source={item.image}
+            contentFit="contain"
+          />
+          <Text style={styles.title} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+            {item.title}
           </Text>
-          <Feather name="chevron-right" size={15 * k} color={Colors.white} />
-        </Pressable>
-      </Animated.View>
+          <Text style={styles.desc} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+            {item.desc}
+          </Text>
+          <Pressable
+            role="button"
+            aria-label={`${item.title} 시작하기`}
+            onPress={() => onStart?.(item)}
+            style={({ pressed }) => [styles.startBtn, pressed && styles.pressed]}
+          >
+            <Text style={styles.startText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
+              시작하기
+            </Text>
+            <Feather name="chevron-right" size={15 * k} color={Colors.white} />
+          </Pressable>
+        </Animated.View>
+      </View>
 
       <Animated.View
         style={[
           styles.sideFace,
           sideFaceStyle,
-          { pointerEvents: isCenter ? "none" : "auto" },
+          isCenter ? pointerStyles.none : pointerStyles.auto,
         ]}
         aria-hidden={isCenter}
       >
@@ -269,7 +270,9 @@ export function MenuCarousel({
 }) {
   const n = CARDS.length;
   const { width } = useWindowDimensions();
-  const k = Math.min(width, MAX_STAGE_W) / BASE_W;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const k = Math.min(mounted ? width : BASE_W, MAX_STAGE_W) / BASE_W;
   const styles = useMemo(() => createStyles(k), [k]);
   const gapPx = CARD_GAP * k;
 
@@ -350,6 +353,12 @@ export function MenuCarousel({
     </View>
   );
 }
+
+const pointerStyles = StyleSheet.create({
+  auto: { pointerEvents: "auto" },
+  boxNone: { pointerEvents: "box-none" },
+  none: { pointerEvents: "none" },
+});
 
 const ARROW_BG = "rgba(106, 57, 7, 0.13)";
 const ARROW_BG_PRESSED = "rgba(106, 57, 7, 0.24)";
