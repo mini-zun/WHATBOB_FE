@@ -1,14 +1,28 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Text, View, ScrollView, useWindowDimensions } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 
 import { Colors, Fonts } from "@/constants/theme";
 
 export default function OrderSheetScreen() {
+    const { height } = useWindowDimensions();
+    const insets = useSafeAreaInsets();
+
+    const availableHeight = height - insets.top - insets.bottom;
+
+    const questionTopSpacing = Math.max(
+        32, Math.min(146, 146 - (852 - availableHeight)),
+    );
+
     return (
         <SafeAreaView style={styles.safeArea}>
-            <View style={styles.page}>
+            <ScrollView style={styles.scroll}
+                contentContainerStyle={styles.page}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+            >
                 <View style={styles.header}>
                     <Pressable
                         onPress={() => router.back()}
@@ -19,19 +33,29 @@ export default function OrderSheetScreen() {
                         <Feather name="arrow-left" size={26} color={Colors.maintext} />
                     </Pressable>
                     <View style={styles.progressTrack}>
+                        <View style={styles.progressBackground}/>
                         <View style={styles.progressFill} />
                     </View>
 
                     <Text style={styles.progressText}>1/8</Text>
                 </View>
 
-                <View style={styles.questionSection}>
+                <View
+                    style={[
+                        styles.questionSection,
+                        { paddingTop: questionTopSpacing },
+                    ]}
+                >
                     <View style={styles.imageCircle}>
-                        <Text style={styles.placeholderEmoji}>🍚</Text>
+                        <Image
+                            source={require("@/assets/images/whatbob_icon.png")}
+                            contentFit="contain"
+                            style={styles.characterImage}
+                        />
                     </View>
 
                     <View style={styles.questionTextBox}>
-                        <Text style={styles.questionText}>뭐 먹고싶냐?</Text>
+                        <Text style={styles.questionText}>국물 있는 음식이 당기시나요?</Text>
 
                     </View>
                 </View>
@@ -55,7 +79,7 @@ export default function OrderSheetScreen() {
                         <Text style={styles.skipText}>상관없어요 · 건너뛰기</Text>
                     </Pressable>
                 </View>
-            </View>
+            </ScrollView>
         </SafeAreaView>
     )
 }
@@ -65,8 +89,15 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: Colors.background,
     },
-    page: {
+    scroll: {
         flex: 1,
+    },
+    page: {
+        flexGrow: 1,
+        paddingBottom: 32,
+        width: "100%",
+        maxWidth: 430,
+        alignSelf: "center",
     },
     header: {
         flexDirection: "row",
@@ -88,13 +119,19 @@ const styles = StyleSheet.create({
         height: 10,
         marginLeft: 10,
         marginRight: 13,
-        borderRadius: 5,
-        backgroundColor: "#EFEFE5",
-        overflow: "hidden",
+        justifyContent: "center",
+    },
+    progressBackground: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: "#F0EFE3"  
     },
     progressFill: {
         width: "12.5%",
-        height: "100%",
+        height: 10,
         borderRadius: 5,
         backgroundColor: Colors.textBrown,
     },
@@ -104,12 +141,11 @@ const styles = StyleSheet.create({
         lineHeight: 26,
         textAlign: "center",
         fontFamily: Fonts.bodyDesc,
-        fontSize: 20,
+        fontSize: 21.32,
         color: Colors.maintext,
     },
     questionSection: {
         alignItems: "center",
-        paddingTop: 146,
         paddingHorizontal: 20,
     },
     imageCircle: {
@@ -120,9 +156,6 @@ const styles = StyleSheet.create({
         backgroundColor: "#EFEFE5",
         alignItems: "center",
         justifyContent: "center",
-    },
-    placeholderEmoji: {
-        fontSize: 80,
     },
     questionTextBox: {
         marginTop: 50,
@@ -142,7 +175,6 @@ const styles = StyleSheet.create({
     answerSection: {
         alignSelf: "center",
         width: "100%",
-        maxWidth: 394,
         paddingHorizontal: 23,
         marginTop: 45,
     },
@@ -160,7 +192,7 @@ const styles = StyleSheet.create({
         gap: 8.99,
     },
     answerButtonText: {
-        fontFamily: Fonts.brand,
+        fontFamily: Fonts.bodyBold,
         fontSize: 20,
         lineHeight: 24,
         color: Colors.white,
@@ -169,16 +201,24 @@ const styles = StyleSheet.create({
     skipButton: {
         alignSelf: "center",
         marginTop: 49,
-        width: 155,
-        height: 23,
+        maxWidth: "100%",
+        minHeight: 23,
         alignItems: "center",
         justifyContent: "center",
     },
     skipText: {
         fontFamily: Fonts.bodyDesc,
-        fontSize: 16,
+        fontSize: 18.81,
         lineHeight: 23,
         color: Colors.textSecondary,
         textAlign: "center",
+    },
+    characterImage: {
+        width: 107,
+        height: 108,
+        transform: [
+            { translateX: 4.5 },
+            { translateY: -6 },
+        ],
     },
 })

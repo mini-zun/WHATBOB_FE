@@ -188,7 +188,7 @@ export default function FoodPreferencesScreen() {
                             <View style={styles.selectedHeader}>
                                 <View style={styles.logo}>
                                     <Image
-                                        source={require('@/assets/images/login-icon.png')}
+                                        source={require('@/assets/images/whatbob_icon.png')}
                                         contentFit="contain"
                                         style={styles.logoImage}
                                     />

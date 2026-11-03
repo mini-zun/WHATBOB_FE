@@ -1,4 +1,4 @@
-import { Image } from 'expo-image';
+﻿import { Image } from 'expo-image';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,7 +39,7 @@ export default function LoginScreen() {
             <ScrollView contentContainerStyle={styles.page} bounces={false}>
                 <View style={styles.hero}>
                     <Image
-                        source={require('@/assets/images/login-icon.png')}
+                        source={require('@/assets/images/whatbob_icon.png')}
                         contentFit='contain'
                         style={styles.character}
                     />
