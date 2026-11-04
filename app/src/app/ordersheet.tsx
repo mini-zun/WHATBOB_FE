@@ -28,6 +28,7 @@ export default function OrderSheetScreen() {
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [recommendation, setRecommendation] =
         useState<OrderSheetRecommendData | null>(null);
+    const [recommendationIndex, setRecommendationIndex] = useState(0);
     const submitInProgress = useRef(false);
 
     const availableHeight = height - insets.top - insets.bottom;
@@ -83,6 +84,10 @@ export default function OrderSheetScreen() {
 
     const question = questions[questionIndex];
 
+
+    const currentMenu =
+        recommendation?.recommended_menus[recommendationIndex];
+
     const selectedOptionId = answers.find(
         (answer) => answer.question_id === question?.id,
     )?.option_id;
@@ -114,6 +119,7 @@ export default function OrderSheetScreen() {
                 top_k: 5,
             });
 
+            setRecommendationIndex(0);
             setRecommendation(data);
         } catch (error) {
             setSubmitError(
@@ -212,32 +218,43 @@ export default function OrderSheetScreen() {
         );
     }
 
-    if (recommendation) {
+    if (recommendation && currentMenu) {
         return (
             <SafeAreaView style={styles.safeArea}>
                 <ScrollView
-                    key="recommendation"
+                    key={`recommendation-${currentMenu.menu_id}`}
                     style={styles.scroll}
                     contentContainerStyle={[styles.page, styles.resultPage]}
                     showsVerticalScrollIndicator={false}
                     bounces={false}
                 >
-                    <Text style={styles.resultTitle}>이런 메뉴는 어떠세요?</Text>
+                    <Text style={styles.resultTitle}>혹시 이 메뉴인가요?</Text>
 
-                    {recommendation.recommended_menus.map((menu) => (
-                        <View key={menu.menu_id} style={styles.resultCard}>
-                            <Text style={styles.resultMenuName}>{menu.name}</Text>
-                            <Text style={styles.skipText}>{menu.category_large}</Text>
-                        </View>
-                    ))}
 
-                    <Pressable
-                        accessibilityRole="button"
-                        style={styles.answerButton}
-                        onPress={() => router.replace("/home")}
-                    >
-                        <Text style={styles.answerButtonText}>홈으로</Text>
-                    </Pressable>
+                    <View style={styles.resultCard}>
+                        <Text style={styles.resultMenuName}>{currentMenu.name}</Text>
+                        <Text style={styles.skipText}>{currentMenu.category_large}</Text>
+                    </View>
+
+                    <View style={styles.answerButtons}>
+                        <Pressable
+                            accessibilityRole="button"
+                            style={styles.answerButton}
+                        >
+                            <Text style={styles.answerButtonText}>
+                                맞아요! 이걸로
+                            </Text>
+                        </Pressable>
+
+                        <Pressable
+                            accessibilityRole="button"
+                            style={styles.answerButton}
+                        >
+                            <Text style={styles.answerButtonText}>
+                                아니에요, 계속 할래요
+                            </Text>
+                        </Pressable>
+                    </View>
                 </ScrollView>
             </SafeAreaView>
         );
