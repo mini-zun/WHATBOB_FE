@@ -6,7 +6,7 @@ import { Image } from "expo-image";
 import { useEffect, useState } from "react";
 
 import { getOrderSheetQuestions } from "@/lib/order_sheet";
-import type { OrderSheetQuestion } from "@/types/order_sheet";
+import type { OrderSheetAnswer, OrderSheetQuestion } from "@/types/order_sheet";
 
 import { Colors, Fonts } from "@/constants/theme";
 
@@ -18,6 +18,8 @@ export default function OrderSheetScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
+    const [questionIndex, setQuestionIndex] = useState(0);
+    const [answers, setAnswers] = useState<OrderSheetAnswer[]>([]);
 
     const availableHeight = height - insets.top - insets.bottom;
 
@@ -58,7 +60,38 @@ export default function OrderSheetScreen() {
         };
     }, [retryCount]);
 
-    const question = questions[0];
+    const question = questions[questionIndex];
+
+    const selectedOptionId = answers.find(
+        (answer) => answer.question_id === question?.id,
+    )?.option_id;
+
+    const handleAnswer = (optionId: string) => {
+        if (!question) return;
+
+        setAnswers((previous) => [
+            ...previous.filter(
+                (answer) => answer.question_id !== question.id,
+            ),
+            {
+                question_id: question.id,
+                option_id: optionId,
+            },
+        ]);
+        if (questionIndex < questions.length - 1) {
+            setQuestionIndex(questionIndex + 1);
+        }
+    };
+
+    const handleBack = () => {
+        if (questionIndex === 0) {
+            router.back();
+            return;
+        }
+
+        setQuestionIndex(questionIndex - 1);
+    };
+
     if (isLoading || error || !question) {
         return (
             <SafeAreaView style={styles.safeArea}>
@@ -91,79 +124,96 @@ export default function OrderSheetScreen() {
     }
 
     return (
-            <SafeAreaView style={styles.safeArea}>
-                <ScrollView style={styles.scroll}
-                    contentContainerStyle={styles.page}
-                    showsVerticalScrollIndicator={false}
-                    bounces={false}
-                >
-                    <View style={styles.header}>
-                        <Pressable
-                            onPress={() => router.back()}
-                            style={styles.backButton}
-                            accessibilityRole="button"
-                            accessibilityLabel="뒤로가기"
-                        >
-                            <Feather name="arrow-left" size={26} color={Colors.maintext} />
-                        </Pressable>
-                        <View style={styles.progressTrack}>
-                            <View style={styles.progressBackground} />
-                            <View style={[styles.progressFill, { width: `${100 / questions.length}%` },
-                            ]}
-                            />
-                        </View>
-
-                        <Text style={styles.progressText}>1/{questions.length}</Text>
-                    </View>
-
-                    <View
-                        style={[
-                            styles.questionSection,
-                            { paddingTop: questionTopSpacing },
-                        ]}
+        <SafeAreaView style={styles.safeArea}>
+            <ScrollView style={styles.scroll}
+                contentContainerStyle={styles.page}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+            >
+                <View style={styles.header}>
+                    <Pressable
+                        onPress={handleBack}
+                        style={styles.backButton}
+                        accessibilityRole="button"
+                        accessibilityLabel="뒤로가기"
                     >
-                        <View style={styles.imageCircle}>
-                            <Image
-                                source={require("@/assets/images/whatbob_icon.png")}
-                                contentFit="contain"
-                                style={styles.characterImage}
-                            />
-                        </View>
-
-                        <View style={styles.questionTextBox}>
-                            <Text style={styles.questionText}>{question.question_text}</Text>
-
-                        </View>
+                        <Feather name="arrow-left" size={26} color={Colors.maintext} />
+                    </Pressable>
+                    <View style={styles.progressTrack}>
+                        <View style={styles.progressBackground} />
+                        <View style={[styles.progressFill, { width: `${100 / questions.length}%` },
+                        ]}
+                        />
                     </View>
 
-                    <View style={styles.answerSection}>
-                        <View style={styles.answerButtons}>
-                            {question.options.filter((option) => option.option_id !== "any").map((option) => (
-                                <Pressable key={option.option_id}
-                                    style={styles.answerButton}
-                                    accessibilityRole="button"
-                                >
-                                    <Text style={styles.answerButtonText}>{option.label}</Text>
-                                </Pressable>
-                            ))
-                            }
-                        </View>
-                        {question.options.filter((option) => option.option_id === "any").map((option) => (
+                    <Text style={styles.progressText}>1/{questions.length}</Text>
+                </View>
+
+                <View
+                    style={[
+                        styles.questionSection,
+                        { paddingTop: questionTopSpacing },
+                    ]}
+                >
+                    <View style={styles.imageCircle}>
+                        <Image
+                            source={require("@/assets/images/whatbob_icon.png")}
+                            contentFit="contain"
+                            style={styles.characterImage}
+                        />
+                    </View>
+
+                    <View style={styles.questionTextBox}>
+                        <Text style={styles.questionText}>{question.question_text}</Text>
+
+                    </View>
+                </View>
+
+                <View style={styles.answerSection}>
+                    <View style={styles.answerButtons}>
+                        {question.options.filter((option) => option.option_id !== "any").map((option) => (
                             <Pressable key={option.option_id}
-                                style={styles.skipButton}
-                                hitSlop={12}
+                                style={[
+                                    styles.answerButton,
+                                    selectedOptionId === option.option_id && styles.selectedOption,
+                                ]}
                                 accessibilityRole="button"
+                                accessibilityState={{
+                                    selected: selectedOptionId === option.option_id,
+                                }}
+                                onPress={() => handleAnswer(option.option_id)}
                             >
-                                <Text style={styles.skipText}>{option.label} · 건너뛰기</Text>
+                                <Text style={styles.answerButtonText}>{option.label}</Text>
                             </Pressable>
-                        ))}
+                        ))
+                        }
                     </View>
-                </ScrollView>
-            </SafeAreaView>
+                    {question.options.filter((option) => option.option_id === "any").map((option) => (
+                        <Pressable key={option.option_id}
+                            style={[
+                                styles.skipButton,
+                                selectedOptionId === option.option_id && styles.selectedOption,
+                            ]}
+                            hitSlop={12}
+                            accessibilityRole="button"
+                            accessibilityState={{
+                                selected: selectedOptionId === option.option_id,
+                            }}
+                            onPress={() => handleAnswer(option.option_id)}
+                        >
+                            <Text style={styles.skipText}>{option.label} · 건너뛰기</Text>
+                        </Pressable>
+                    ))}
+                </View>
+            </ScrollView>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
+    selectedOption: {
+        opacity: 0.65,
+    },
     safeArea: {
         flex: 1,
         backgroundColor: Colors.background,
