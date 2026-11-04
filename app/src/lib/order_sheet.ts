@@ -1,6 +1,9 @@
 import type {
     OrderSheetQuestionsData,
     OrderSheetQuestionsResponse,
+    OrderSheetRecommendData,
+    OrderSheetRecommendRequest,
+    OrderSheetRecommendResponse,
 } from '@/types/order_sheet';
 
 export async function getOrderSheetQuestions():
@@ -16,10 +19,6 @@ export async function getOrderSheetQuestions():
     const headers: Record<string, string> = {
         Accept: 'application/json',
     };
-
-    if (new URL(apiBaseUrl).hostname.endsWith('.ngrok-free.dev')) {
-        headers['ngrok-skip-browser-warning'] = 'true';
-    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
@@ -62,4 +61,71 @@ export async function getOrderSheetQuestions():
     } finally {
         clearTimeout(timeout);
     }
- }
+}
+
+export async function submitOrderSheet(
+    request: OrderSheetRecommendRequest,
+): Promise<OrderSheetRecommendData> {
+    const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+
+    if (!apiBaseUrl) {
+        throw new Error("API 주소가 설정되지 않았습니다.");
+    }
+
+    if (request.answers.length === 0) {
+        throw new Error("제출할 답변이 없습니다.");
+    }
+
+    const endpoint = `${apiBaseUrl.replace(/\/$/, "")}` + "/api/recommendations/order-sheet";
+
+    const headers: Record<string, string> = {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+    };
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    try {
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(request),
+            signal: controller.signal,
+        });
+
+        if (!response.ok) {
+            throw new Error(
+                `추천을 받지 못했습니다. (HTTP ${response.status})`,
+            );
+        }
+
+        const result: OrderSheetRecommendResponse =
+            await response.json();
+
+        if (!result?.success || !result.data) {
+            throw new Error(
+                result?.message || "추천 응답이 올바르지 않습니다.",
+            );
+        }
+
+        if (
+            !Array.isArray(result.data.recommended_menus) ||
+            result.data.recommended_menus.length === 0
+        ) {
+            throw new Error("추천된 메뉴가 없습니다.");
+        }
+
+        return result.data;
+    } catch (error) {
+        if (controller.signal.aborted) {
+            throw new Error(
+                "추천 요청 시간이 초과되었습니다. 처리 결과를 확인한 뒤 다시 시도해 주세요.",
+            );
+        }
+
+        throw error;
+    } finally {
+        clearTimeout(timeout);
+    }
+}

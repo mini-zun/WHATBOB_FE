@@ -5,8 +5,12 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Image } from "expo-image";
 import { useEffect, useState, useRef } from "react";
 
-import { getOrderSheetQuestions } from "@/lib/order_sheet";
-import type { OrderSheetAnswer, OrderSheetQuestion } from "@/types/order_sheet";
+import { getOrderSheetQuestions, submitOrderSheet } from "@/lib/order_sheet";
+import type {
+    OrderSheetAnswer,
+    OrderSheetQuestion,
+    OrderSheetRecommendData,
+} from "@/types/order_sheet";
 
 import { Colors, Fonts } from "@/constants/theme";
 
@@ -20,6 +24,11 @@ export default function OrderSheetScreen() {
     const [retryCount, setRetryCount] = useState(0);
     const [questionIndex, setQuestionIndex] = useState(0);
     const [answers, setAnswers] = useState<OrderSheetAnswer[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const [recommendation, setRecommendation] =
+        useState<OrderSheetRecommendData | null>(null);
+    const submitInProgress = useRef(false);
 
     const availableHeight = height - insets.top - insets.bottom;
     const scrollRef = useRef<ScrollView>(null);
@@ -40,6 +49,10 @@ export default function OrderSheetScreen() {
 
                 if (!cancelled) {
                     setQuestions(data.questions);
+                    setQuestionIndex(0);
+                    setAnswers([]);
+                    setSubmitError(null);
+                    setRecommendation(null);
                 }
             } catch (error) {
                 if (!cancelled) {
@@ -74,24 +87,77 @@ export default function OrderSheetScreen() {
         (answer) => answer.question_id === question?.id,
     )?.option_id;
 
-    const handleAnswer = (optionId: string) => {
-        if (!question) return;
+    const handleSubmit = async (submittedAnswers: OrderSheetAnswer[]) => {
+        if (submitInProgress.current || recommendation) return;
 
-        setAnswers((previous) => [
-            ...previous.filter(
+        const hasAllAnswers =
+            questions.length > 0 &&
+            questions.every((question) =>
+                submittedAnswers.some(
+                    (answer) => answer.question_id === question.id,
+                ),
+            );
+
+        if (!hasAllAnswers) {
+            setSubmitError("모든 질문에 답변해 주세요.");
+            return;
+        }
+
+        submitInProgress.current = true;
+        setIsSubmitting(true);
+        setSubmitError(null);
+
+        try {
+            const data = await submitOrderSheet({
+                answers: submittedAnswers,
+                exclusions: [],
+                top_k: 5,
+            });
+
+            setRecommendation(data);
+        } catch (error) {
+            setSubmitError(
+                error instanceof Error
+                    ? error.message
+                    : "추천 요청에 실패했습니다.",
+            );
+        } finally {
+            submitInProgress.current = false;
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleAnswer = (optionId: string) => {
+        if (!question || submitInProgress.current || recommendation) {
+            return;
+        }
+
+        const nextAnswers: OrderSheetAnswer[] = [
+            ...answers.filter(
                 (answer) => answer.question_id !== question.id,
             ),
             {
                 question_id: question.id,
                 option_id: optionId,
             },
-        ]);
+        ];
+
+        setAnswers(nextAnswers);
+        setSubmitError(null);
+
         if (questionIndex < questions.length - 1) {
             setQuestionIndex(questionIndex + 1);
+            return;
         }
+
+        void handleSubmit(nextAnswers);
     };
 
     const handleBack = () => {
+        if (submitInProgress.current) return;
+
+        setSubmitError(null);
+
         if (questionIndex === 0) {
             router.back();
             return;
@@ -127,6 +193,52 @@ export default function OrderSheetScreen() {
                         <Text style={styles.skipText}>뒤로가기</Text>
                     </Pressable>
                 </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (isSubmitting) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <View
+                    style={[styles.page, styles.statusPage]}
+                    accessibilityState={{ busy: true }}
+                >
+                    <Text style={styles.skipText}>
+                        답변에 맞는 메뉴를 찾고 있어요.
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (recommendation) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <ScrollView
+                    key="recommendation"
+                    style={styles.scroll}
+                    contentContainerStyle={[styles.page, styles.resultPage]}
+                    showsVerticalScrollIndicator={false}
+                    bounces={false}
+                >
+                    <Text style={styles.resultTitle}>이런 메뉴는 어떠세요?</Text>
+
+                    {recommendation.recommended_menus.map((menu) => (
+                        <View key={menu.menu_id} style={styles.resultCard}>
+                            <Text style={styles.resultMenuName}>{menu.name}</Text>
+                            <Text style={styles.skipText}>{menu.category_large}</Text>
+                        </View>
+                    ))}
+
+                    <Pressable
+                        accessibilityRole="button"
+                        style={styles.answerButton}
+                        onPress={() => router.replace("/home")}
+                    >
+                        <Text style={styles.answerButtonText}>홈으로</Text>
+                    </Pressable>
+                </ScrollView>
             </SafeAreaView>
         );
     }
@@ -179,6 +291,20 @@ export default function OrderSheetScreen() {
                 </View>
 
                 <View style={styles.answerSection}>
+                    {submitError && (
+                        <View style={styles.submitErrorSection}>
+                            <Text style={styles.skipText}>{submitError}</Text>
+                            <Pressable
+                                accessibilityRole="button"
+                                style={styles.answerButton}
+                                onPress={() => void handleSubmit(answers)}
+                            >
+                                <Text style={styles.answerButtonText}>
+                                    추천 다시 요청하기
+                                </Text>
+                            </Pressable>
+                        </View>
+                    )}
                     <View style={styles.answerButtons}>
                         {question.options.filter((option) => option.option_id !== "any").map((option) => (
                             <Pressable key={option.option_id}
@@ -242,6 +368,35 @@ const styles = StyleSheet.create({
         alignItems: "center",
         paddingHorizontal: 24,
         gap: 20,
+    },
+    resultPage: {
+        paddingHorizontal: 24,
+        paddingTop: 32,
+        gap: 20,
+    },
+    resultTitle: {
+        fontFamily: Fonts.nonpreferencefood,
+        fontSize: 28.5,
+        lineHeight: 36,
+        color: Colors.textBrown,
+        textAlign: "center",
+    },
+    resultCard: {
+        padding: 20,
+        borderRadius: 20,
+        backgroundColor: "#EFEFE5",
+        gap: 8,
+    },
+    resultMenuName: {
+        fontFamily: Fonts.bodyBold,
+        fontSize: 22,
+        lineHeight: 30,
+        color: Colors.textBrown,
+        textAlign: "center",
+    },
+    submitErrorSection: {
+        gap: 12,
+        marginBottom: 20,
     },
     header: {
         flexDirection: "row",
