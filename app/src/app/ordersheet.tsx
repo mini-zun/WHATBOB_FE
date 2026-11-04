@@ -3,6 +3,14 @@ import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View, ScrollView, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
+import { useEffect, useState, useRef } from "react";
+
+import { getOrderSheetQuestions, submitOrderSheet } from "@/lib/order_sheet";
+import type {
+    OrderSheetAnswer,
+    OrderSheetQuestion,
+    OrderSheetRecommendData,
+} from "@/types/order_sheet";
 
 import { Colors, Fonts } from "@/constants/theme";
 
@@ -10,22 +18,242 @@ export default function OrderSheetScreen() {
     const { height } = useWindowDimensions();
     const insets = useSafeAreaInsets();
 
+    const [questions, setQuestions] = useState<OrderSheetQuestion[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [retryCount, setRetryCount] = useState(0);
+    const [questionIndex, setQuestionIndex] = useState(0);
+    const [answers, setAnswers] = useState<OrderSheetAnswer[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const [recommendation, setRecommendation] =
+        useState<OrderSheetRecommendData | null>(null);
+    const submitInProgress = useRef(false);
+
     const availableHeight = height - insets.top - insets.bottom;
+    const scrollRef = useRef<ScrollView>(null);
 
     const questionTopSpacing = Math.max(
         32, Math.min(146, 146 - (852 - availableHeight)),
     );
 
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadQuestions = async () => {
+            setIsLoading(true);
+            setError(null);
+
+            try {
+                const data = await getOrderSheetQuestions();
+
+                if (!cancelled) {
+                    setQuestions(data.questions);
+                    setQuestionIndex(0);
+                    setAnswers([]);
+                    setSubmitError(null);
+                    setRecommendation(null);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setError(
+                        error instanceof Error ? error.message : "질문을 불러오지 못했습니다.",
+                    );
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        void loadQuestions();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [retryCount]);
+
+    useEffect(() => {
+        scrollRef.current?.scrollTo({
+            y: 0,
+            animated: false,
+        });
+    }, [questionIndex]);
+
+    const question = questions[questionIndex];
+
+    const selectedOptionId = answers.find(
+        (answer) => answer.question_id === question?.id,
+    )?.option_id;
+
+    const handleSubmit = async (submittedAnswers: OrderSheetAnswer[]) => {
+        if (submitInProgress.current || recommendation) return;
+
+        const hasAllAnswers =
+            questions.length > 0 &&
+            questions.every((question) =>
+                submittedAnswers.some(
+                    (answer) => answer.question_id === question.id,
+                ),
+            );
+
+        if (!hasAllAnswers) {
+            setSubmitError("모든 질문에 답변해 주세요.");
+            return;
+        }
+
+        submitInProgress.current = true;
+        setIsSubmitting(true);
+        setSubmitError(null);
+
+        try {
+            const data = await submitOrderSheet({
+                answers: submittedAnswers,
+                exclusions: [],
+                top_k: 5,
+            });
+
+            setRecommendation(data);
+        } catch (error) {
+            setSubmitError(
+                error instanceof Error
+                    ? error.message
+                    : "추천 요청에 실패했습니다.",
+            );
+        } finally {
+            submitInProgress.current = false;
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleAnswer = (optionId: string) => {
+        if (!question || submitInProgress.current || recommendation) {
+            return;
+        }
+
+        const nextAnswers: OrderSheetAnswer[] = [
+            ...answers.filter(
+                (answer) => answer.question_id !== question.id,
+            ),
+            {
+                question_id: question.id,
+                option_id: optionId,
+            },
+        ];
+
+        setAnswers(nextAnswers);
+        setSubmitError(null);
+
+        if (questionIndex < questions.length - 1) {
+            setQuestionIndex(questionIndex + 1);
+            return;
+        }
+
+        void handleSubmit(nextAnswers);
+    };
+
+    const handleBack = () => {
+        if (submitInProgress.current) return;
+
+        setSubmitError(null);
+
+        if (questionIndex === 0) {
+            router.back();
+            return;
+        }
+
+        setQuestionIndex(questionIndex - 1);
+    };
+
+    if (isLoading || error || !question) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <View style={[styles.page, styles.statusPage]}>
+                    <Text style={styles.skipText}>
+                        {isLoading
+                            ? "질문을 불러오는 중이에요."
+                            : error || "표시할 질문이 없습니다."}
+                    </Text>
+
+                    {!isLoading && (
+                        <Pressable
+                            accessibilityRole="button"
+                            style={styles.answerButton}
+                            onPress={() => setRetryCount((count) => count + 1)}
+                        >
+                            <Text style={styles.answerButtonText}>다시 시도</Text>
+                        </Pressable>
+                    )}
+
+                    <Pressable
+                        accessibilityRole="button"
+                        onPress={() => router.back()}
+                    >
+                        <Text style={styles.skipText}>뒤로가기</Text>
+                    </Pressable>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (isSubmitting) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <View
+                    style={[styles.page, styles.statusPage]}
+                    accessibilityState={{ busy: true }}
+                >
+                    <Text style={styles.skipText}>
+                        답변에 맞는 메뉴를 찾고 있어요.
+                    </Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (recommendation) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <ScrollView
+                    key="recommendation"
+                    style={styles.scroll}
+                    contentContainerStyle={[styles.page, styles.resultPage]}
+                    showsVerticalScrollIndicator={false}
+                    bounces={false}
+                >
+                    <Text style={styles.resultTitle}>이런 메뉴는 어떠세요?</Text>
+
+                    {recommendation.recommended_menus.map((menu) => (
+                        <View key={menu.menu_id} style={styles.resultCard}>
+                            <Text style={styles.resultMenuName}>{menu.name}</Text>
+                            <Text style={styles.skipText}>{menu.category_large}</Text>
+                        </View>
+                    ))}
+
+                    <Pressable
+                        accessibilityRole="button"
+                        style={styles.answerButton}
+                        onPress={() => router.replace("/home")}
+                    >
+                        <Text style={styles.answerButtonText}>홈으로</Text>
+                    </Pressable>
+                </ScrollView>
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView style={styles.scroll}
+                ref={scrollRef}
                 contentContainerStyle={styles.page}
                 showsVerticalScrollIndicator={false}
                 bounces={false}
             >
                 <View style={styles.header}>
                     <Pressable
-                        onPress={() => router.back()}
+                        onPress={handleBack}
                         style={styles.backButton}
                         accessibilityRole="button"
                         accessibilityLabel="뒤로가기"
@@ -33,11 +261,13 @@ export default function OrderSheetScreen() {
                         <Feather name="arrow-left" size={26} color={Colors.maintext} />
                     </Pressable>
                     <View style={styles.progressTrack}>
-                        <View style={styles.progressBackground}/>
-                        <View style={styles.progressFill} />
+                        <View style={styles.progressBackground} />
+                        <View style={[styles.progressFill, { width: `${((questionIndex + 1) / questions.length) * 100}%` },
+                        ]}
+                        />
                     </View>
 
-                    <Text style={styles.progressText}>1/8</Text>
+                    <Text style={styles.progressText}>{questionIndex + 1}/{questions.length}</Text>
                 </View>
 
                 <View
@@ -55,36 +285,70 @@ export default function OrderSheetScreen() {
                     </View>
 
                     <View style={styles.questionTextBox}>
-                        <Text style={styles.questionText}>국물 있는 음식이 당기시나요?</Text>
+                        <Text style={styles.questionText}>{question.question_text}</Text>
 
                     </View>
                 </View>
 
                 <View style={styles.answerSection}>
+                    {submitError && (
+                        <View style={styles.submitErrorSection}>
+                            <Text style={styles.skipText}>{submitError}</Text>
+                            <Pressable
+                                accessibilityRole="button"
+                                style={styles.answerButton}
+                                onPress={() => void handleSubmit(answers)}
+                            >
+                                <Text style={styles.answerButtonText}>
+                                    추천 다시 요청하기
+                                </Text>
+                            </Pressable>
+                        </View>
+                    )}
                     <View style={styles.answerButtons}>
-                        <Pressable style={styles.answerButton}>
-                            <Text style={styles.answerButtonText}>예</Text>
-                        </Pressable>
-
-                        <Pressable style={styles.answerButton}>
-                            <Text style={styles.answerButtonText}>아니요</Text>
-                        </Pressable>
+                        {question.options.filter((option) => option.option_id !== "any").map((option) => (
+                            <Pressable key={option.option_id}
+                                style={[
+                                    styles.answerButton,
+                                    selectedOptionId === option.option_id && styles.selectedOption,
+                                ]}
+                                accessibilityRole="button"
+                                accessibilityState={{
+                                    selected: selectedOptionId === option.option_id,
+                                }}
+                                onPress={() => handleAnswer(option.option_id)}
+                            >
+                                <Text style={styles.answerButtonText}>{option.label}</Text>
+                            </Pressable>
+                        ))
+                        }
                     </View>
-
-                    <Pressable
-                        style={styles.skipButton}
-                        hitSlop={12}
-                        accessibilityRole="button"
-                    >
-                        <Text style={styles.skipText}>상관없어요 · 건너뛰기</Text>
-                    </Pressable>
+                    {question.options.filter((option) => option.option_id === "any").map((option) => (
+                        <Pressable key={option.option_id}
+                            style={[
+                                styles.skipButton,
+                                selectedOptionId === option.option_id && styles.selectedOption,
+                            ]}
+                            hitSlop={12}
+                            accessibilityRole="button"
+                            accessibilityState={{
+                                selected: selectedOptionId === option.option_id,
+                            }}
+                            onPress={() => handleAnswer(option.option_id)}
+                        >
+                            <Text style={styles.skipText}>{option.label} · 건너뛰기</Text>
+                        </Pressable>
+                    ))}
                 </View>
             </ScrollView>
         </SafeAreaView>
-    )
+    );
 }
 
 const styles = StyleSheet.create({
+    selectedOption: {
+        opacity: 0.65,
+    },
     safeArea: {
         flex: 1,
         backgroundColor: Colors.background,
@@ -98,6 +362,41 @@ const styles = StyleSheet.create({
         width: "100%",
         maxWidth: 430,
         alignSelf: "center",
+    },
+    statusPage: {
+        justifyContent: "center",
+        alignItems: "center",
+        paddingHorizontal: 24,
+        gap: 20,
+    },
+    resultPage: {
+        paddingHorizontal: 24,
+        paddingTop: 32,
+        gap: 20,
+    },
+    resultTitle: {
+        fontFamily: Fonts.nonpreferencefood,
+        fontSize: 28.5,
+        lineHeight: 36,
+        color: Colors.textBrown,
+        textAlign: "center",
+    },
+    resultCard: {
+        padding: 20,
+        borderRadius: 20,
+        backgroundColor: "#EFEFE5",
+        gap: 8,
+    },
+    resultMenuName: {
+        fontFamily: Fonts.bodyBold,
+        fontSize: 22,
+        lineHeight: 30,
+        color: Colors.textBrown,
+        textAlign: "center",
+    },
+    submitErrorSection: {
+        gap: 12,
+        marginBottom: 20,
     },
     header: {
         flexDirection: "row",
@@ -127,10 +426,9 @@ const styles = StyleSheet.create({
         right: 0,
         height: 8,
         borderRadius: 4,
-        backgroundColor: "#F0EFE3"  
+        backgroundColor: "#F0EFE3"
     },
     progressFill: {
-        width: "12.5%",
         height: 10,
         borderRadius: 5,
         backgroundColor: Colors.textBrown,
