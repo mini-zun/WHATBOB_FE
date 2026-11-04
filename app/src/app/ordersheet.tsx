@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View, ScrollView, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 import { getOrderSheetQuestions } from "@/lib/order_sheet";
 import type { OrderSheetAnswer, OrderSheetQuestion } from "@/types/order_sheet";
@@ -22,6 +22,7 @@ export default function OrderSheetScreen() {
     const [answers, setAnswers] = useState<OrderSheetAnswer[]>([]);
 
     const availableHeight = height - insets.top - insets.bottom;
+    const scrollRef = useRef<ScrollView>(null);
 
     const questionTopSpacing = Math.max(
         32, Math.min(146, 146 - (852 - availableHeight)),
@@ -59,6 +60,13 @@ export default function OrderSheetScreen() {
             cancelled = true;
         };
     }, [retryCount]);
+
+    useEffect(() => {
+        scrollRef.current?.scrollTo({
+            y: 0,
+            animated: false,
+        });
+    }, [questionIndex]);
 
     const question = questions[questionIndex];
 
@@ -126,6 +134,7 @@ export default function OrderSheetScreen() {
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView style={styles.scroll}
+                ref={scrollRef}
                 contentContainerStyle={styles.page}
                 showsVerticalScrollIndicator={false}
                 bounces={false}
@@ -141,12 +150,12 @@ export default function OrderSheetScreen() {
                     </Pressable>
                     <View style={styles.progressTrack}>
                         <View style={styles.progressBackground} />
-                        <View style={[styles.progressFill, { width: `${100 / questions.length}%` },
+                        <View style={[styles.progressFill, { width: `${((questionIndex + 1) / questions.length) * 100}%` },
                         ]}
                         />
                     </View>
 
-                    <Text style={styles.progressText}>1/{questions.length}</Text>
+                    <Text style={styles.progressText}>{questionIndex + 1}/{questions.length}</Text>
                 </View>
 
                 <View
@@ -265,7 +274,6 @@ const styles = StyleSheet.create({
         backgroundColor: "#F0EFE3"
     },
     progressFill: {
-        width: "12.5%",
         height: 10,
         borderRadius: 5,
         backgroundColor: Colors.textBrown,
