@@ -7,6 +7,14 @@
     "web": {
       "output": "static"
     },
-    "plugins": ["expo-router"]
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "QR 코드로 방에 참여하기 위해 카메라를 사용합니다."
+        }
+      ]
+    ]
   }
 }
