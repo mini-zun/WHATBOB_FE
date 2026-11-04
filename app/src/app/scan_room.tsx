@@ -37,13 +37,14 @@ export default function ScanRoomScreen() {
     if (!permission) return null;
 
     if (!permission.granted) {
-      if (Platform.OS === "web") {
+      if (Platform.OS === "web" && permission.status === "denied") {
         return (
           <Text style={styles.permissionText}>
             {`브라우저 주소창의 카메라 아이콘에서\n카메라 권한을 허용해 주세요`}
           </Text>
         );
       }
+      const canAsk = Platform.OS === "web" || permission.canAskAgain;
       return (
         <View style={styles.permission}>
           <Text style={styles.permissionText}>
@@ -51,14 +52,10 @@ export default function ScanRoomScreen() {
           </Text>
           <Pressable
             style={styles.primaryBtn}
-            onPress={() =>
-              permission.canAskAgain
-                ? requestPermission()
-                : Linking.openSettings()
-            }
+            onPress={() => (canAsk ? requestPermission() : Linking.openSettings())}
           >
             <Text style={styles.primaryBtnText}>
-              {permission.canAskAgain ? "카메라 권한 허용" : "설정에서 허용하기"}
+              {canAsk ? "카메라 권한 허용" : "설정에서 허용하기"}
             </Text>
           </Pressable>
         </View>
