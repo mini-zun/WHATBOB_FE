@@ -11,6 +11,7 @@ export const Colors = {
   cardGreen: "#E5E9D4",
   buttonBrown: "#5A3A1F",
   buttonLightBrown: "#8e571f",
+  backGrey: "#F0EFE3",
   white: "#FFFFFF",
   darkBrown: "#55371E",
   lightBrown: "#EDDBC5",
@@ -28,5 +29,6 @@ export const Fonts = {
   bodyBold: "PretendardBold",
   bodySemiBold: "PretendardSemiBold",
   bodyDesc: "Cafe24Simplehae",
+  bodyMedium: "PretendardMedium",
   nonpreferencefood: "BusanDandiMyeongjoM",
 } as const;
