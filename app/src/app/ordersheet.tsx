@@ -5,12 +5,17 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Image } from "expo-image";
 import { useEffect, useState, useRef } from "react";
 
-import { getOrderSheetQuestions, submitOrderSheet } from "@/lib/order_sheet";
+import {
+    getOrderSheetQuestions,
+    submitOrderSheet,
+    submitRecommendationFeedback,
+} from "@/lib/order_sheet";
 import type {
     OrderSheetAnswer,
     OrderSheetQuestion,
     OrderSheetRecommendData,
 } from "@/types/order_sheet";
+
 
 import { Colors, Fonts } from "@/constants/theme";
 
@@ -30,6 +35,12 @@ export default function OrderSheetScreen() {
         useState<OrderSheetRecommendData | null>(null);
     const [recommendationIndex, setRecommendationIndex] = useState(0);
     const submitInProgress = useRef(false);
+    const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
+    const [feedbackError, setFeedbackError] = useState<string | null>(null);
+    const [isAccepted, setIsAccepted] = useState(false);
+
+    const feedbackInProgress = useRef(false);
+    const completedFeedback = useRef(new Set<string>());
 
     const availableHeight = height - insets.top - insets.bottom;
     const scrollRef = useRef<ScrollView>(null);
@@ -54,6 +65,10 @@ export default function OrderSheetScreen() {
                     setAnswers([]);
                     setSubmitError(null);
                     setRecommendation(null);
+                    setRecommendationIndex(0);
+                    setFeedbackError(null);
+                    setIsAccepted(false);
+                    completedFeedback.current.clear();
                 }
             } catch (error) {
                 if (!cancelled) {
@@ -120,6 +135,9 @@ export default function OrderSheetScreen() {
             });
 
             setRecommendationIndex(0);
+            setFeedbackError(null);
+            setIsAccepted(false);
+            completedFeedback.current.clear();
             setRecommendation(data);
         } catch (error) {
             setSubmitError(
@@ -172,6 +190,59 @@ export default function OrderSheetScreen() {
         setQuestionIndex(questionIndex - 1);
     };
 
+    const handleFeedback = async (isSatisfied: boolean) => {
+        if (!recommendation || !currentMenu || isAccepted) return;
+
+        const feedbackKey = `${recommendation.recommendation_id}:${currentMenu.menu_id}`;
+
+        if (
+            feedbackInProgress.current ||
+            completedFeedback.current.has(feedbackKey)
+        ) {
+            return;
+        }
+
+        feedbackInProgress.current = true;
+        setIsFeedbackSubmitting(true);
+        setFeedbackError(null);
+
+        try {
+            await submitRecommendationFeedback(
+                recommendation.recommendation_id,
+                {
+                    selected_menu_id: currentMenu.menu_id,
+                    is_satisfied: isSatisfied,
+                },
+            );
+
+            completedFeedback.current.add(feedbackKey);
+
+            if (isSatisfied) {
+                setIsAccepted(true);
+                return;
+            }
+
+            if (
+                recommendationIndex >=
+                recommendation.recommended_menus.length - 1
+            ) {
+                router.replace("/home");
+                return;
+            }
+
+            setRecommendationIndex(recommendationIndex + 1);
+        } catch (error) {
+            setFeedbackError(
+                error instanceof Error
+                    ? error.message
+                    : "피드백을 저장하지 못했습니다.",
+            );
+        } finally {
+            feedbackInProgress.current = false;
+            setIsFeedbackSubmitting(false);
+        }
+    };
+
     if (isLoading || error || !question) {
         return (
             <SafeAreaView style={styles.safeArea}>
@@ -218,6 +289,30 @@ export default function OrderSheetScreen() {
         );
     }
 
+    if (recommendation && currentMenu && isAccepted) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <ScrollView
+                    style={styles.scroll}
+                    contentContainerStyle={[styles.page, styles.statusPage]}
+                    bounces={false}
+                >
+                    <Text style={styles.resultTitle}>
+                        오늘 메뉴는 {currentMenu.name}!
+                    </Text>
+                    <Text style={styles.skipText}>맛있게 드세요.</Text>
+                    <Pressable
+                        accessibilityRole="button"
+                        style={styles.answerButton}
+                        onPress={() => router.replace("/home")}
+                    >
+                        <Text style={styles.answerButtonText}>홈으로</Text>
+                    </Pressable>
+                </ScrollView>
+            </SafeAreaView>
+        );
+    }
+
     if (recommendation && currentMenu) {
         return (
             <SafeAreaView style={styles.safeArea}>
@@ -236,10 +331,28 @@ export default function OrderSheetScreen() {
                         <Text style={styles.skipText}>{currentMenu.category_large}</Text>
                     </View>
 
+                    {isFeedbackSubmitting && (
+                        <Text style={styles.skipText}>
+                            선택을 저장하고 있어요.
+                        </Text>
+                    )}
+                    {feedbackError && (
+                        <Text style={styles.skipText}>{feedbackError}</Text>
+                    )}
+
                     <View style={styles.answerButtons}>
                         <Pressable
                             accessibilityRole="button"
-                            style={styles.answerButton}
+                            style={[
+                                styles.answerButton,
+                                isFeedbackSubmitting && styles.selectedOption,
+                            ]}
+                            disabled={isFeedbackSubmitting}
+                            accessibilityState={{
+                                disabled: isFeedbackSubmitting,
+                                busy: isFeedbackSubmitting,
+                            }}
+                            onPress={() => void handleFeedback(true)}
                         >
                             <Text style={styles.answerButtonText}>
                                 맞아요! 이걸로
@@ -248,8 +361,17 @@ export default function OrderSheetScreen() {
 
                         <Pressable
                             accessibilityRole="button"
-                            style={styles.answerButton}
-                        >
+                            style={[
+                                styles.answerButton,
+                                isFeedbackSubmitting && styles.selectedOption,
+                            ]}
+                            disabled={isFeedbackSubmitting}
+                            accessibilityState={{
+                                disabled: isFeedbackSubmitting,
+                                busy: isFeedbackSubmitting,
+                            }}
+                            onPress={() => void handleFeedback(false)}
+                            >
                             <Text style={styles.answerButtonText}>
                                 아니에요, 계속 할래요
                             </Text>
