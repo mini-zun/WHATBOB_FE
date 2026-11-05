@@ -297,13 +297,20 @@ export default function OrderSheetScreen() {
                     contentContainerStyle={[styles.page, styles.statusPage]}
                     bounces={false}
                 >
+                    <View style={styles.resultImageCircle}>
+                        <Image
+                            source={require("@/assets/images/whatbob_icon.png")}
+                            contentFit="contain"
+                            style={styles.characterImage}
+                        />
+                    </View>
                     <Text style={styles.resultTitle}>
                         오늘 메뉴는 {currentMenu.name}!
                     </Text>
                     <Text style={styles.skipText}>맛있게 드세요.</Text>
                     <Pressable
                         accessibilityRole="button"
-                        style={styles.answerButton}
+                        style={[styles.answerButton, styles.completionButton]}
                         onPress={() => router.replace("/home")}
                     >
                         <Text style={styles.answerButtonText}>홈으로</Text>
@@ -316,20 +323,53 @@ export default function OrderSheetScreen() {
     if (recommendation && currentMenu) {
         return (
             <SafeAreaView style={styles.safeArea}>
+                <View style={styles.header}>
+                    <Pressable onPress={() => router.replace("/home")}
+                        style={styles.backButton}
+                        accessibilityRole="button"
+                        accessibilityLabel="홈으로 돌아가기"
+                        disabled={isFeedbackSubmitting}
+                        accessibilityState={{ disabled: isFeedbackSubmitting }}
+                    >
+                        <Feather
+                            name="arrow-left"
+                            size={26}
+                            color={Colors.maintext}
+                        />
+                    </Pressable>
+
+                    <View style={styles.progressTrack}>
+                        <View style={styles.progressBackground} />
+                        <View
+                            style={[
+                                styles.progressFill,
+                                { width: "100%" },
+                            ]}
+                        />
+                    </View>
+
+                    <Text style={styles.progressText}>
+                        {questions.length}/{questions.length}
+                    </Text>
+                </View>
+
                 <ScrollView
                     key={`recommendation-${currentMenu.menu_id}`}
                     style={styles.scroll}
-                    contentContainerStyle={[styles.page, styles.resultPage]}
+                    contentContainerStyle={[styles.page, styles.resultPage, { paddingTop: Math.max(24, questionTopSpacing - 46) },]}
                     showsVerticalScrollIndicator={false}
                     bounces={false}
                 >
-                    <Text style={styles.resultTitle}>혹시 이 메뉴인가요?</Text>
+                    <Text style={styles.recommendationTitle}>혹시 이 메뉴인가요?</Text>
 
-
-                    <View style={styles.resultCard}>
-                        <Text style={styles.resultMenuName}>{currentMenu.name}</Text>
-                        <Text style={styles.skipText}>{currentMenu.category_large}</Text>
+                    <View style={styles.resultImageCircle}>
+                        <Image source={require("@/assets/images/whatbob_icon.png")}
+                            contentFit="contain"
+                            style={styles.characterImage}
+                        />
                     </View>
+
+                    <Text style={styles.resultMenuName}>{currentMenu.name}</Text>
 
                     {isFeedbackSubmitting && (
                         <Text style={styles.skipText}>
@@ -340,7 +380,7 @@ export default function OrderSheetScreen() {
                         <Text style={styles.skipText}>{feedbackError}</Text>
                     )}
 
-                    <View style={styles.answerButtons}>
+                    <View style={[styles.answerButtons, styles.resultActions]}>
                         <Pressable
                             accessibilityRole="button"
                             style={[
@@ -371,14 +411,14 @@ export default function OrderSheetScreen() {
                                 busy: isFeedbackSubmitting,
                             }}
                             onPress={() => void handleFeedback(false)}
-                            >
+                        >
                             <Text style={styles.answerButtonText}>
                                 아니에요, 계속 할래요
                             </Text>
                         </Pressable>
                     </View>
                 </ScrollView>
-            </SafeAreaView>
+            </SafeAreaView >
         );
     }
 
@@ -508,10 +548,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         gap: 20,
     },
+    completionButton: {
+        width: "100%",
+    },
     resultPage: {
-        paddingHorizontal: 24,
+        paddingHorizontal: 23,
         paddingTop: 32,
-        gap: 20,
     },
     resultTitle: {
         fontFamily: Fonts.nonpreferencefood,
@@ -520,18 +562,13 @@ const styles = StyleSheet.create({
         color: Colors.textBrown,
         textAlign: "center",
     },
-    resultCard: {
-        padding: 20,
-        borderRadius: 20,
-        backgroundColor: "#EFEFE5",
-        gap: 8,
-    },
     resultMenuName: {
-        fontFamily: Fonts.bodyBold,
-        fontSize: 22,
-        lineHeight: 30,
+        fontFamily: Fonts.nonpreferencefood,
+        fontSize: 30.13,
+        lineHeight: 46,
         color: Colors.textBrown,
         textAlign: "center",
+        marginTop: 38,
     },
     submitErrorSection: {
         gap: 12,
@@ -548,7 +585,7 @@ const styles = StyleSheet.create({
         width: 62,
         height: 62,
         borderRadius: 31,
-        backgroundColor: "#EFEFE5",
+        backgroundColor: Colors.backGrey,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -565,7 +602,7 @@ const styles = StyleSheet.create({
         right: 0,
         height: 8,
         borderRadius: 4,
-        backgroundColor: "#F0EFE3"
+        backgroundColor: Colors.backGrey
     },
     progressFill: {
         height: 10,
@@ -590,7 +627,7 @@ const styles = StyleSheet.create({
         maxWidth: "100%",
         aspectRatio: 1,
         borderRadius: 108,
-        backgroundColor: "#EFEFE5",
+        backgroundColor: Colors.backGrey,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -604,7 +641,7 @@ const styles = StyleSheet.create({
     questionText: {
         fontFamily: Fonts.nonpreferencefood,
         fontSize: 28.5,
-        lineHeight: 28.5,
+        lineHeight: 36,
         color: Colors.textBrown,
         textAlign: "center",
     },
@@ -629,7 +666,7 @@ const styles = StyleSheet.create({
         gap: 8.99,
     },
     answerButtonText: {
-        fontFamily: Fonts.bodyBold,
+        fontFamily: Fonts.bodyBlack,
         fontSize: 20,
         lineHeight: 24,
         color: Colors.white,
@@ -657,5 +694,29 @@ const styles = StyleSheet.create({
             { translateX: 4.5 },
             { translateY: -6 },
         ],
+    },
+
+    recommendationTitle: {
+        fontFamily: Fonts.nonpreferencefood,
+        fontSize: 25.17,
+        lineHeight: 38,
+        color: Colors.textSecondary,
+        textAlign: "center",
+    },
+
+    resultImageCircle: {
+        alignSelf: "center",
+        width: 216,
+        maxWidth: "100%",
+        aspectRatio: 1,
+        borderRadius: 108,
+        backgroundColor: Colors.cardYellow,
+        alignItems: "center",
+        justifyContent: "center",
+        marginTop: 8,
+    },
+
+    resultActions: {
+        marginTop: 54,
     },
 })
