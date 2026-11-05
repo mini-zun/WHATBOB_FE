@@ -111,7 +111,10 @@ export function deleteRoom(roomId: string): Promise<RoomDeleteResponse> {
 }
 
 export function roomSocketUrl(roomId: string) {
-  const wsBaseUrl = getApiBaseUrl().replace(/^http/, "ws");
+  // Vercel 프록시는 WebSocket을 전달하지 못해서 배포 환경은 백엔드 주소를 따로 지정한다
+  const wsBaseUrl =
+    process.env.EXPO_PUBLIC_WS_BASE_URL ??
+    getApiBaseUrl().replace(/^http/, "ws");
   return `${wsBaseUrl}/ws/rooms/${encodeURIComponent(roomId)}`;
 }
 
