@@ -13,6 +13,7 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PopUpBox } from "@/components/home/PopUpMessage";
 import { Colors, Fonts } from "@/constants/theme";
 import { useRoom } from "@/hooks/useRoom";
 import { ApiError } from "@/lib/api";
@@ -57,23 +58,55 @@ export default function RoomScreen() {
     }
   };
 
-  const renderBody = () => {
-    if (!roomId) return <Message title="잘못된 방 주소에요." />;
+  const getPopUp = () => {
+    if (!roomId) {
+      return {
+        message: "잘못된 방 주소예요.",
+        leftButtonText: "확인",
+        rightButtonText: "나가기",
+        onLeftButtonClick: handleBack,
+        onRightButtonClick: handleBack,
+      };
+    }
     if (!room) {
-      if (loading) {
-        return (
-          <ActivityIndicator color={Colors.textBrown} style={styles.loading} />
-        );
-      }
+      if (loading) return null;
+      return {
+        message: getErrorTitle(error),
+        leftButtonText: "다시 시도",
+        rightButtonText: "나가기",
+        onLeftButtonClick: refresh,
+        onRightButtonClick: handleBack,
+      };
+    }
+    if (room.is_member) return null;
+    if (room.is_full) {
+      return {
+        message: "인원이 가득 찬 방이에요.",
+        leftButtonText: "다시 확인",
+        rightButtonText: "나가기",
+        onLeftButtonClick: refresh,
+        onRightButtonClick: handleBack,
+      };
+    }
+    const hostName =
+      room.members.find((member) => member.user_id === room.host_user_id)
+        ?.nickname ?? "친구";
+    return {
+      message: joinError ?? `${hostName}님의 방에\n참여하시겠습니까?`,
+      leftButtonText: joining ? "참여 중..." : "예",
+      rightButtonText: "아니요",
+      onLeftButtonClick: handleJoin,
+      onRightButtonClick: handleBack,
+    };
+  };
+
+  const renderBody = () => {
+    if (roomId && !room && loading) {
       return (
-        <Message
-          title={getErrorTitle(error)}
-          actionLabel="다시 시도"
-          onAction={refresh}
-        />
+        <ActivityIndicator color={Colors.textBrown} style={styles.loading} />
       );
     }
-    if (room.is_member) {
+    if (room?.is_member) {
       return (
         <>
           <Text
@@ -86,88 +119,47 @@ export default function RoomScreen() {
         </>
       );
     }
-    if (room.is_full) {
-      return (
-        <>
-          <Message title="인원이 가득 찼어요" />
-          <MemberList room={room} />
-        </>
-      );
-    }
     return (
-      <>
-        <Text style={styles.bodyTitle}>{`이 방에\n참여할까요?`}</Text>
-        <MemberList room={room} />
-      </>
+      <Text style={styles.bodyTitle}>{`방을 만들고\n링크를 보내세요`}</Text>
     );
   };
 
-  const canJoin = room && !room.is_member && !room.is_full;
+  const popUp = getPopUp();
   const canStart = room?.is_member && room.member_count >= 2;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={handleBack}>
-          <Feather name="arrow-left" size={22} />
-        </Pressable>
-        <Text style={styles.headerTitle}>친구와 같이 고르기</Text>
-      </View>
-      <ScrollView contentContainerStyle={styles.page} bounces={false}>
-        <View style={styles.content}>{renderBody()}</View>
-      </ScrollView>
-
-      {canJoin && (
-        <View style={styles.bottomLayout}>
-          {joinError && <Text style={styles.errorText}>{joinError}</Text>}
-          <Pressable
-            style={[styles.primaryBtn, joining && styles.disabled]}
-            onPress={handleJoin}
-            disabled={joining}
-          >
-            <Text style={styles.primaryBtnText}>
-              {joining ? "참여하는 중..." : "참여하기"}
-            </Text>
+    <View style={styles.root}>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={handleBack}>
+            <Feather name="arrow-left" size={22} />
           </Pressable>
+          <Text style={styles.headerTitle}>친구와 같이 고르기</Text>
         </View>
-      )}
-      {room?.is_member && (
-        <View style={styles.bottomLayout}>
-          <Pressable
-            style={[styles.primaryBtn, !canStart && styles.disabled]}
-            onPress={() => console.log("각자 고르러 가기 선택됨")}
-            disabled={!canStart}
-          >
-            <Text style={styles.primaryBtnText}>각자 고르러 가기</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.secondaryBtn, !isAllPicked && styles.disabled]}
-            onPress={() => console.log("다음 단계로 넘어가기 선택됨")}
-            disabled={!isAllPicked}
-          >
-            <Text style={styles.secondaryBtnText}>다음 단계로 넘어가기</Text>
-          </Pressable>
-        </View>
-      )}
-    </SafeAreaView>
-  );
-}
+        <ScrollView contentContainerStyle={styles.page} bounces={false}>
+          <View style={styles.content}>{renderBody()}</View>
+        </ScrollView>
 
-type MessageProps = {
-  title: string;
-  actionLabel?: string;
-  onAction?: () => void;
-};
-
-function Message({ title, actionLabel, onAction }: MessageProps) {
-  return (
-    <View style={styles.message}>
-      <Text style={styles.messageTitle}>{title}</Text>
-      {actionLabel && onAction && (
-        <Pressable style={styles.retryBtn} onPress={onAction}>
-          <Text style={styles.retryBtnText}>{actionLabel}</Text>
-        </Pressable>
-      )}
+        {room?.is_member && (
+          <View style={styles.bottomLayout}>
+            <Pressable
+              style={[styles.primaryBtn, !canStart && styles.disabled]}
+              onPress={() => console.log("각자 고르러 가기 선택됨")}
+              disabled={!canStart}
+            >
+              <Text style={styles.primaryBtnText}>각자 고르러 가기</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.secondaryBtn, !isAllPicked && styles.disabled]}
+              onPress={() => console.log("다음 단계로 넘어가기 선택됨")}
+              disabled={!isAllPicked}
+            >
+              <Text style={styles.secondaryBtnText}>다음 단계로 넘어가기</Text>
+            </Pressable>
+          </View>
+        )}
+      </SafeAreaView>
+      {popUp && <PopUpBox visible {...popUp} />}
     </View>
   );
 }
@@ -225,6 +217,9 @@ function JoinedUser({ member, isHost }: JoinedUserProps) {
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -277,29 +272,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     marginBottom: 32,
   },
-  message: {
-    alignItems: "center",
-    gap: 16,
-    marginTop: 40,
-    marginBottom: 32,
-  },
-  messageTitle: {
-    fontFamily: Fonts.bodyMedium,
-    fontSize: 20,
-    textAlign: "center",
-  },
-  retryBtn: {
-    borderRadius: 100,
-    borderColor: Colors.textBrown,
-    borderWidth: 2,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-  },
-  retryBtnText: {
-    fontFamily: Fonts.bodyBold,
-    fontSize: 16,
-    color: Colors.textBrown,
-  },
   joinedListLayout: {
     flexDirection: "row",
     gap: 6,
@@ -348,12 +320,6 @@ const styles = StyleSheet.create({
     marginBottom: 28,
     paddingHorizontal: 20,
     alignItems: "center",
-  },
-  errorText: {
-    fontFamily: Fonts.bodyMedium,
-    fontSize: 14,
-    color: Colors.red,
-    textAlign: "center",
   },
   primaryBtn: {
     backgroundColor: Colors.textBrown,
