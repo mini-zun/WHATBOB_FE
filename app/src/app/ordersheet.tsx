@@ -349,7 +349,7 @@ export default function OrderSheetScreen() {
                 <ScrollView
                     key={`recommendation-${currentMenu.menu_id}`}
                     style={styles.scroll}
-                    contentContainerStyle={[styles.page, styles.resultPage]}
+                    contentContainerStyle={[styles.page, styles.resultPage, { paddingTop: Math.max(24, questionTopSpacing - 46) },]}
                     showsVerticalScrollIndicator={false}
                     bounces={false}
                 >
@@ -373,7 +373,7 @@ export default function OrderSheetScreen() {
                         <Text style={styles.skipText}>{feedbackError}</Text>
                     )}
 
-                    <View style={styles.answerButtons}>
+                    <View style={[styles.answerButtons, styles.resultActions]}>
                         <Pressable
                             accessibilityRole="button"
                             style={[
@@ -542,9 +542,8 @@ const styles = StyleSheet.create({
         gap: 20,
     },
     resultPage: {
-        paddingHorizontal: 24,
+        paddingHorizontal: 23,
         paddingTop: 32,
-        gap: 20,
     },
     resultTitle: {
         fontFamily: Fonts.nonpreferencefood,
@@ -559,6 +558,7 @@ const styles = StyleSheet.create({
         lineHeight: 46,
         color: Colors.textBrown,
         textAlign: "center",
+        marginTop: 38,
     },
     submitErrorSection: {
         gap: 12,
@@ -702,6 +702,11 @@ const styles = StyleSheet.create({
         borderRadius: 108,
         backgroundColor: Colors.cardYellow,
         alignItems: "center",
-        justifyContent: "center"
+        justifyContent: "center",
+        marginTop: 8,
+    },
+
+    resultActions: {
+        marginTop: 54,
     },
 })
