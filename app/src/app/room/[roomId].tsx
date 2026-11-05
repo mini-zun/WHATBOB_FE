@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -15,9 +15,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PopUpBox } from "@/components/home/PopUpMessage";
 import { Colors, Fonts } from "@/constants/theme";
-import { useRoom } from "@/hooks/useRoom";
+import { useRoom, type RoomClosedReason } from "@/hooks/useRoom";
 import { ApiError } from "@/lib/api";
 import {
+  deleteRoom,
   joinRoom,
   parseRoomId,
   type RoomDetail,
@@ -29,18 +30,78 @@ const handleBack = () => {
   else router.replace("/pick_with_friend");
 };
 
+const GONE_STATUSES = [404, 410];
+
+const CLOSED_MESSAGES: Record<RoomClosedReason, string> = {
+  HOST_LEFT: "방장이 방을 나가서\n방이 사라졌어요.",
+  HOST_DISCONNECTED: "방장의 연결이 끊겨서\n방이 사라졌어요.",
+  EXPIRED: "방을 만든 지 1시간이 지나\n방이 사라졌어요.",
+  UNKNOWN: "방이 사라졌어요.",
+};
+
 function getErrorTitle(error: ApiError | null) {
   if (error?.status === 404) return "존재하지 않는 방이에요.";
+  if (error?.status === 410) return "이미 사라진 방이에요.";
   return error?.message ?? "방 정보를 불러오지 못 했습니다.";
 }
 
 export default function RoomScreen() {
   const params = useLocalSearchParams<{ roomId: string }>();
   const roomId = parseRoomId(params.roomId ?? "") ?? undefined;
-  const { room, error, loading, refresh } = useRoom(roomId);
+  const { room, error, loading, refresh, closedReason } = useRoom(roomId);
+  const navigation = useNavigation();
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [isAllPicked, setIsAllPicked] = useState(false);
+  const [leaveRequest, setLeaveRequest] = useState<{
+    action: Parameters<typeof navigation.dispatch>[0];
+  } | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  const [left, setLeft] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+
+  const shouldConfirmLeave =
+    room?.my_role === "HOST" && !closedReason && !left;
+
+  // 뒤로 가기 버튼, 안드로이드 뒤로 가기, 스와이프를 모두 막고 확인 팝업을 띄운다
+  useEffect(() => {
+    if (!shouldConfirmLeave) return;
+    return navigation.addListener("beforeRemove", (e) => {
+      e.preventDefault();
+      setLeaveRequest({ action: e.data.action });
+    });
+  }, [navigation, shouldConfirmLeave]);
+
+  // 방을 지운 뒤 위의 리스너가 해제되고 나서 막아 둔 이동을 실행한다
+  useEffect(() => {
+    if (left && leaveRequest) navigation.dispatch(leaveRequest.action);
+  }, [navigation, left, leaveRequest]);
+
+  const handleLeaveRoom = async () => {
+    if (!roomId || leaving) return;
+    setLeaving(true);
+    setLeaveError(null);
+    try {
+      await deleteRoom(roomId);
+    } catch (e) {
+      const alreadyGone =
+        e instanceof ApiError && GONE_STATUSES.includes(e.status);
+      if (!alreadyGone) {
+        setLeaveError(
+          e instanceof ApiError ? e.message : "방을 나가지 못했습니다.",
+        );
+        setLeaving(false);
+        return;
+      }
+    }
+    setLeft(true);
+  };
+
+  const handleCancelLeave = () => {
+    if (leaving) return;
+    setLeaveRequest(null);
+    setLeaveError(null);
+  };
 
   const handleJoin = async () => {
     if (!roomId || joining) return;
@@ -62,6 +123,26 @@ export default function RoomScreen() {
     if (!roomId) {
       return {
         message: "잘못된 방 주소예요.",
+        leftButtonText: "확인",
+        rightButtonText: "나가기",
+        onLeftButtonClick: handleBack,
+        onRightButtonClick: handleBack,
+      };
+    }
+    if (leaveRequest) {
+      return {
+        message:
+          leaveError ??
+          "정말로 나가시겠습니까?\n방을 나가면 모두가 굶게됩니다.",
+        leftButtonText: leaving ? "나가는 중..." : "예",
+        rightButtonText: "아니요",
+        onLeftButtonClick: handleLeaveRoom,
+        onRightButtonClick: handleCancelLeave,
+      };
+    }
+    if (closedReason) {
+      return {
+        message: CLOSED_MESSAGES[closedReason] ?? CLOSED_MESSAGES.UNKNOWN,
         leftButtonText: "확인",
         rightButtonText: "나가기",
         onLeftButtonClick: handleBack,
