@@ -12,6 +12,7 @@ export const Colors = {
   buttonBrown: "#5A3A1F",
   buttonLightBrown: "#8e571f",
   backGrey: "#F0EFE3",
+  resultCardBackground: "#EFEFE5",
   white: "#FFFFFF",
   darkBrown: "#55371E",
   lightBrown: "#EDDBC5",
@@ -27,6 +28,7 @@ export const Colors = {
 export const Fonts = {
   brand: "Cafe24Ssurround",
   bodyBold: "PretendardBold",
+  bodyBlack: "PretendardBlack",
   bodySemiBold: "PretendardSemiBold",
   bodyDesc: "Cafe24Simplehae",
   bodyMedium: "PretendardMedium",

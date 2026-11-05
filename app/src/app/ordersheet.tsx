@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     resultCard: {
         padding: 20,
         borderRadius: 20,
-        backgroundColor: "#EFEFE5",
+        backgroundColor: Colors.resultCardBackground,
         gap: 8,
     },
     resultMenuName: {
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
         width: 62,
         height: 62,
         borderRadius: 31,
-        backgroundColor: "#EFEFE5",
+        backgroundColor: Colors.backGrey,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
         right: 0,
         height: 8,
         borderRadius: 4,
-        backgroundColor: "#F0EFE3"
+        backgroundColor: Colors.backGrey
     },
     progressFill: {
         height: 10,
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
         maxWidth: "100%",
         aspectRatio: 1,
         borderRadius: 108,
-        backgroundColor: "#EFEFE5",
+        backgroundColor: Colors.backGrey,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
         gap: 8.99,
     },
     answerButtonText: {
-        fontFamily: Fonts.bodyBold,
+        fontFamily: Fonts.bodyBlack,
         fontSize: 20,
         lineHeight: 24,
         color: Colors.white,
