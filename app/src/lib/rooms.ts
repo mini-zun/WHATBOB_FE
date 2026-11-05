@@ -1,4 +1,4 @@
-import { ApiError, apiFetch } from "./api";
+import { ApiError, apiFetch, getApiBaseUrl } from "./api";
 
 export type RoomMember = {
   user_id: number;
@@ -6,6 +6,8 @@ export type RoomMember = {
   profile_image: string | null;
   role: string;
   joined_at: string;
+  order_sheet_completed: boolean;
+  order_sheet_completed_at: string | null;
 };
 
 export type RoomCreateResponse = {
@@ -15,6 +17,7 @@ export type RoomCreateResponse = {
   status: string;
   max_members: number;
   created_at: string;
+  expires_at: string;
 };
 
 export type RoomJoinResponse = {
@@ -38,8 +41,37 @@ export type RoomDetail = {
   is_member: boolean;
   my_role: string | null;
   created_at: string;
+  expires_at: string;
   members: RoomMember[];
+  completed_member_count: number;
+  all_members_completed: boolean;
 };
+
+export type RoomCloseReason = "HOST_LEFT" | "HOST_DISCONNECTED" | "EXPIRED";
+
+export type RoomDeleteResponse = {
+  room_id: string;
+  deleted: boolean;
+  close_reason: RoomCloseReason;
+  closed_at: string;
+};
+
+export type RoomSocketMessage =
+  | { type: "connection.ready"; room_id: string; user_id: number }
+  | {
+      type: "room.updated";
+      room_id: string;
+      reason: string;
+      user_id: number;
+      occurred_at: string;
+    }
+  | {
+      type: "room.closed";
+      room_id: string;
+      reason: RoomCloseReason;
+      closed_at: string;
+    }
+  | { type: "pong" };
 
 const ROOM_ID =
   /[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
@@ -72,6 +104,15 @@ export function joinRoom(roomId: string): Promise<RoomJoinResponse> {
   return apiFetch<RoomJoinResponse>(`${roomPath(roomId)}/join`, {
     method: "POST",
   });
+}
+
+export function deleteRoom(roomId: string): Promise<RoomDeleteResponse> {
+  return apiFetch<RoomDeleteResponse>(roomPath(roomId), { method: "DELETE" });
+}
+
+export function roomSocketUrl(roomId: string) {
+  const wsBaseUrl = getApiBaseUrl().replace(/^http/, "ws");
+  return `${wsBaseUrl}/ws/rooms/${encodeURIComponent(roomId)}`;
 }
 
 export function parseRoomId(data: string): string | null {

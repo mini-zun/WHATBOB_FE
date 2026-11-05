@@ -22,7 +22,7 @@ type ApiOptions = {
     signal?: AbortSignal;
 };
 
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
     const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
     if (!apiBaseUrl) throw new ApiError('백엔드 주소가 설정되지 않았습니다.', 0);
     return apiBaseUrl.replace(/\/$/, '');
@@ -35,12 +35,12 @@ function getApiHeaders(apiBaseUrl: string): Record<string, string> {
         : {};
 }
 
-function getAccessToken(): string | null {
+export function getAccessToken(): string | null {
     if (Platform.OS !== 'web') return null;
     return readWebSession()?.access_token ?? null;
 }
 
-function handleUnauthorized() {
+export function handleUnauthorized() {
     if (Platform.OS === 'web') clearWebSession();
     router.replace('/login');
 }
