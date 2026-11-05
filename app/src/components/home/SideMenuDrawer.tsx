@@ -9,7 +9,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import Constants from "expo-constants";
 
 import { Colors, Fonts } from "@/constants/theme";
@@ -25,14 +25,22 @@ const APP_VERSION = Constants.expoConfig?.version ?? "";
 export function SideMenuDrawer({ visible, onClose }: Props) {
   const insets = useSafeAreaInsets();
 
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [pendingPath, setPendingPath] = useState<Href | null>(null);
+
+  useEffect(() => {
+    if (!pendingPath) return;
+    onClose();
+    router.push(pendingPath);
+    setPendingPath(null);
+  }, [pendingPath, onClose]);
 
   const handleToNonPreferenceFood = () => {
-    router.replace("/non_preference_food");
+    setPendingPath("/non_preference_food");
   };
 
   const handleToFoodHistory = () => {
-    router.replace("/food_history");
+    setPendingPath("/food_history");
   };
 
   useEffect(() => {
@@ -50,7 +58,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
     <>
       <Animated.View
         entering={FadeIn.duration(80)}
-        exiting={FadeOut.duration(80)}
+        exiting={pendingPath ? undefined : FadeOut.duration(80)}
         style={styles.backdrop}
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
@@ -58,7 +66,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
 
       <Animated.View
         entering={SlideInRight.duration(130)}
-        exiting={SlideOutRight.duration(80)}
+        exiting={pendingPath ? undefined : SlideOutRight.duration(80)}
         style={[styles.panel]}
       >
         <View style={styles.profileBack}>
@@ -88,7 +96,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           menuTitle="개인정보 처리방침"
           menuIcon="lock"
           menuIconColor="yellow"
-          onPress={() => setMenuOpen(true)}
+          onPress={() => setPrivacyOpen(true)}
         />
         <MenuItem
           menuTitle="앱 버전"
@@ -99,8 +107,8 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         <View style={styles.menuEnd} />
       </Animated.View>
       <PrivacyPolicyPopUp
-        visible={menuOpen}
-        onClose={() => setMenuOpen(false)}
+        visible={privacyOpen}
+        onClose={() => setPrivacyOpen(false)}
       />
     </>
   );
@@ -156,6 +164,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     width: "80%",
+    maxWidth: 500,
     backgroundColor: Colors.background,
     // paddingHorizontal: 24,
     borderTopLeftRadius: 20,

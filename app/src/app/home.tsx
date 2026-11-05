@@ -7,7 +7,7 @@ import {
 } from "react-native-safe-area-context";
 
 import { Colors, Fonts } from "@/constants/theme";
-import { Feather, MaterialIcons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import { MenuCarousel } from "@/components/home/MenuCarousel";
 
 import { useState } from "react";
@@ -17,20 +17,24 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const handleToPickWithFriend = () => {
+    router.push("/pick_with_friend");
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <Image
+            source={require("@/assets/images/logo_with_text.png")}
+            contentFit="contain"
+            style={styles.topLogo}
+          />
+          <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
+            <Feather name="menu" size={35} />
+          </Pressable>
+        </View>
         <ScrollView contentContainerStyle={styles.page} bounces={false}>
-          <View style={styles.header}>
-            <Image
-              source={require("@/assets/images/logo_with_text.png")}
-              contentFit="contain"
-              style={styles.topLogo}
-            />
-            <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
-              <Feather name="menu" size={35} />
-            </Pressable>
-          </View>
           <View style={styles.hero}>
             <Image
               source={require("@/assets/images/main_title.png")}
@@ -48,39 +52,22 @@ export default function HomeScreen() {
 
             <View style={styles.content}>
               <View style={styles.smallButtonRow}>
-                <Pressable style={styles.smallPinkButton}>
-                  <View style={styles.horizontalView}>
-                    <Image
-                      source={require("@/assets/images/with_friend_icon.png")}
-                      contentFit="contain"
-                      style={styles.smallButtonIcon}
-                    />
-                    <Text style={styles.smallButtonText}>
-                      {`친구와\n같이 고르기`}
-                    </Text>
-                    <MaterialIcons
-                      name="keyboard-arrow-right"
-                      size={26}
-                      color={Colors.darkBrown}
-                    />
-                  </View>
+                <Pressable
+                  style={styles.smallButton}
+                  onPress={handleToPickWithFriend}
+                >
+                  <Image
+                    source={require("@/assets/images/pick_with_friend_button.png")}
+                    contentFit="contain"
+                    style={styles.smallButtonImage}
+                  />
                 </Pressable>
-                <Pressable style={styles.smallGreyButton}>
-                  <View style={styles.horizontalView}>
-                    <Image
-                      source={require("@/assets/images/recent_icon.png")}
-                      contentFit="contain"
-                      style={styles.smallButtonIcon}
-                    />
-                    <Text style={styles.smallButtonText}>
-                      {`내가 먹은 음식\n모아보기`}
-                    </Text>
-                    <MaterialIcons
-                      name="keyboard-arrow-right"
-                      size={26}
-                      color={Colors.darkBrown}
-                    />
-                  </View>
+                <Pressable style={styles.smallButton}>
+                  <Image
+                    source={require("@/assets/images/eat_history_button.png")}
+                    contentFit="contain"
+                    style={styles.smallButtonImage}
+                  />
                 </Pressable>
               </View>
 
@@ -98,7 +85,13 @@ export default function HomeScreen() {
               </ScrollView>
               <View style={styles.menusTitleView}>
                 <Text style={styles.smallMenuText}>요즘 인기 메뉴</Text>
-                <Text style={styles.smallMenuText}>+</Text>
+                <Pressable>
+                  <Image
+                    source={require("@/assets/images/plus_button.png")}
+                    contentFit="contain"
+                    style={styles.plusButton}
+                  />
+                </Pressable>
               </View>
               <ScrollView
                 horizontal
@@ -128,18 +121,19 @@ const styles = StyleSheet.create({
   page: {
     flexGrow: 1,
     paddingHorizontal: 24,
+    paddingTop: 30,
   },
   hero: {
-    // flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
   },
   header: {
     marginTop: 11,
+    paddingHorizontal: 24,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 40,
+    paddingBottom: 10,
   },
   topLogo: {
     width: 103,
@@ -192,10 +186,6 @@ const styles = StyleSheet.create({
     fontSize: 11.71,
     color: Colors.white,
   },
-  horizontalView: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
   indicatorSelected: {
     marginHorizontal: 7.22,
     backgroundColor: Colors.darkBrown,
@@ -210,44 +200,20 @@ const styles = StyleSheet.create({
     height: 13,
     borderRadius: 40,
   },
-  smallPinkButton: {
-    marginTop: 21,
+  smallButton: {
     flex: 1,
-    maxWidth: 170,
-    height: 66,
-    backgroundColor: Colors.buttonPink,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 6px 4px -4px rgba(0, 0, 0, 0.25)",
-    marginBottom: 26,
   },
-  smallGreyButton: {
-    marginTop: 21,
-    maxWidth: 170,
-    flex: 1,
-    height: 66,
-    backgroundColor: Colors.buttonGrey,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 6px 4px -4px rgba(0, 0, 0, 0.25)",
-    marginBottom: 26,
-  },
-  smallButtonIcon: {
-    width: 38,
-    height: 45,
-  },
-  smallButtonText: {
-    fontFamily: Fonts.brand,
-    fontSize: 11.64,
-    marginLeft: 15,
+  smallButtonImage: {
+    width: "100%",
+    aspectRatio: 531 / 222,
   },
   smallButtonRow: {
     flexDirection: "row",
     alignSelf: "stretch",
     gap: 12,
     justifyContent: "center",
+    marginTop: 21,
+    marginBottom: 20,
   },
   smallMenuText: {
     fontFamily: Fonts.brand,
@@ -272,5 +238,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignSelf: "stretch",
     justifyContent: "space-between",
+  },
+  plusButton: {
+    width: 12,
+    height: 12,
   },
 });
