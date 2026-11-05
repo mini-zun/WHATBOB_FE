@@ -316,6 +316,36 @@ export default function OrderSheetScreen() {
     if (recommendation && currentMenu) {
         return (
             <SafeAreaView style={styles.safeArea}>
+                <View style={styles.header}>
+                    <Pressable onPress={() => router.replace("/home")}
+                        style={styles.backButton}
+                        accessibilityRole="button"
+                        accessibilityLabel="홈으로 돌아가기"
+                        disabled={isFeedbackSubmitting}
+                        accessibilityState={{ disabled: isFeedbackSubmitting }}
+                    >
+                        <Feather
+                            name="arrow-left"
+                            size={26}
+                            color={Colors.maintext}
+                        />
+                    </Pressable>
+
+                    <View style={styles.progressTrack}>
+                        <View style={styles.progressBackground} />
+                        <View
+                            style={[
+                                styles.progressFill,
+                                { width: "100%" },
+                            ]}
+                        />
+                    </View>
+
+                    <Text style={styles.progressText}>
+                        {questions.length}/{questions.length}
+                    </Text>
+                </View>
+
                 <ScrollView
                     key={`recommendation-${currentMenu.menu_id}`}
                     style={styles.scroll}
@@ -323,7 +353,7 @@ export default function OrderSheetScreen() {
                     showsVerticalScrollIndicator={false}
                     bounces={false}
                 >
-                    <Text style={styles.recommandationTitle}>혹시 이 메뉴인가요?</Text>
+                    <Text style={styles.recommendationTitle}>혹시 이 메뉴인가요?</Text>
 
                     <View style={styles.resultImageCircle}>
                         <Image source={require("@/assets/images/whatbob_icon.png")}
@@ -381,7 +411,7 @@ export default function OrderSheetScreen() {
                         </Pressable>
                     </View>
                 </ScrollView>
-            </SafeAreaView>
+            </SafeAreaView >
         );
     }
 
@@ -656,7 +686,7 @@ const styles = StyleSheet.create({
         ],
     },
 
-    recommandationTitle: {
+    recommendationTitle: {
         fontFamily: Fonts.nonpreferencefood,
         fontSize: 25.17,
         lineHeight: 38,
