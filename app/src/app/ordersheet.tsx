@@ -323,13 +323,16 @@ export default function OrderSheetScreen() {
                     showsVerticalScrollIndicator={false}
                     bounces={false}
                 >
-                    <Text style={styles.resultTitle}>혹시 이 메뉴인가요?</Text>
+                    <Text style={styles.recommandationTitle}>혹시 이 메뉴인가요?</Text>
 
-
-                    <View style={styles.resultCard}>
-                        <Text style={styles.resultMenuName}>{currentMenu.name}</Text>
-                        <Text style={styles.skipText}>{currentMenu.category_large}</Text>
+                    <View style={styles.resultImageCircle}>
+                        <Image source={require("@/assets/images/whatbob_icon.png")}
+                            contentFit="contain"
+                            style={styles.characterImage}
+                        />
                     </View>
+
+                    <Text style={styles.resultMenuName}>{currentMenu.name}</Text>
 
                     {isFeedbackSubmitting && (
                         <Text style={styles.skipText}>
@@ -371,7 +374,7 @@ export default function OrderSheetScreen() {
                                 busy: isFeedbackSubmitting,
                             }}
                             onPress={() => void handleFeedback(false)}
-                            >
+                        >
                             <Text style={styles.answerButtonText}>
                                 아니에요, 계속 할래요
                             </Text>
@@ -520,16 +523,10 @@ const styles = StyleSheet.create({
         color: Colors.textBrown,
         textAlign: "center",
     },
-    resultCard: {
-        padding: 20,
-        borderRadius: 20,
-        backgroundColor: Colors.resultCardBackground,
-        gap: 8,
-    },
     resultMenuName: {
-        fontFamily: Fonts.bodyBold,
-        fontSize: 22,
-        lineHeight: 30,
+        fontFamily: Fonts.nonpreferencefood,
+        fontSize: 30.13,
+        lineHeight: 46,
         color: Colors.textBrown,
         textAlign: "center",
     },
@@ -604,7 +601,7 @@ const styles = StyleSheet.create({
     questionText: {
         fontFamily: Fonts.nonpreferencefood,
         fontSize: 28.5,
-        lineHeight: 28.5,
+        lineHeight: 36,
         color: Colors.textBrown,
         textAlign: "center",
     },
@@ -657,5 +654,24 @@ const styles = StyleSheet.create({
             { translateX: 4.5 },
             { translateY: -6 },
         ],
+    },
+
+    recommandationTitle: {
+        fontFamily: Fonts.nonpreferencefood,
+        fontSize: 25.17,
+        lineHeight: 38,
+        color: Colors.textSecondary,
+        textAlign: "center",
+    },
+
+    resultImageCircle: {
+        alignSelf: "center",
+        width: 216,
+        maxWidth: "100%",
+        aspectRatio: 1,
+        borderRadius: 108,
+        backgroundColor: Colors.cardYellow,
+        alignItems: "center",
+        justifyContent: "center"
     },
 })
