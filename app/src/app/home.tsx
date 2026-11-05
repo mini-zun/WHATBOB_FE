@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   page: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 40,
+    paddingTop: 30,
   },
   hero: {
     alignItems: "center",
@@ -133,6 +133,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingBottom: 10,
   },
   topLogo: {
     width: 103,
