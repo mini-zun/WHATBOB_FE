@@ -59,6 +59,9 @@ export default function RoomScreen() {
   const [leaving, setLeaving] = useState(false);
   const [left, setLeft] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
+  // 정적 HTML에는 방 ID가 없으므로 브라우저에 마운트된 뒤에 화면 내용을 정한다
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const shouldConfirmLeave =
     room?.my_role === "HOST" && !closedReason && !left;
@@ -118,6 +121,7 @@ export default function RoomScreen() {
   };
 
   const getPopUp = () => {
+    if (!mounted) return null;
     if (!roomId) {
       return {
         message: "잘못된 방 주소예요.",
@@ -180,7 +184,7 @@ export default function RoomScreen() {
   };
 
   const renderBody = () => {
-    if (roomId && !room && loading) {
+    if (!mounted || (roomId && !room && loading)) {
       return (
         <ActivityIndicator color={Colors.textBrown} style={styles.loading} />
       );

@@ -5,6 +5,10 @@
     {
       "source": "/api/:path*",
       "destination": "/api/proxy?path=:path*"
+    },
+    {
+      "source": "/room/:roomId",
+      "destination": "/room/[roomId]"
     }
   ]
 }
