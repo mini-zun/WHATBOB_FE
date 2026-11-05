@@ -63,7 +63,6 @@ export default function RoomScreen() {
   const shouldConfirmLeave =
     room?.my_role === "HOST" && !closedReason && !left;
 
-  // 뒤로 가기 버튼, 안드로이드 뒤로 가기, 스와이프를 모두 막고 확인 팝업을 띄운다
   useEffect(() => {
     if (!shouldConfirmLeave) return;
     return navigation.addListener("beforeRemove", (e) => {
@@ -72,7 +71,6 @@ export default function RoomScreen() {
     });
   }, [navigation, shouldConfirmLeave]);
 
-  // 방을 지운 뒤 위의 리스너가 해제되고 나서 막아 둔 이동을 실행한다
   useEffect(() => {
     if (left && leaveRequest) navigation.dispatch(leaveRequest.action);
   }, [navigation, left, leaveRequest]);
@@ -133,7 +131,7 @@ export default function RoomScreen() {
       return {
         message:
           leaveError ??
-          "정말로 나가시겠습니까?\n방을 나가면 모두가 굶게됩니다.",
+          "정말로 나가시겠습니까?\n방을 나가면 모두가 굶게됩니다😭",
         leftButtonText: leaving ? "나가는 중..." : "예",
         rightButtonText: "아니요",
         onLeftButtonClick: handleLeaveRoom,
