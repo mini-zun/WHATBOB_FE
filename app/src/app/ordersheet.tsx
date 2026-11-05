@@ -297,13 +297,20 @@ export default function OrderSheetScreen() {
                     contentContainerStyle={[styles.page, styles.statusPage]}
                     bounces={false}
                 >
+                    <View style={styles.resultImageCircle}>
+                        <Image
+                            source={require("@/assets/images/whatbob_icon.png")}
+                            contentFit="contain"
+                            style={styles.characterImage}
+                        />
+                    </View>
                     <Text style={styles.resultTitle}>
                         오늘 메뉴는 {currentMenu.name}!
                     </Text>
                     <Text style={styles.skipText}>맛있게 드세요.</Text>
                     <Pressable
                         accessibilityRole="button"
-                        style={styles.answerButton}
+                        style={[styles.answerButton, styles.completionButton]}
                         onPress={() => router.replace("/home")}
                     >
                         <Text style={styles.answerButtonText}>홈으로</Text>
@@ -540,6 +547,9 @@ const styles = StyleSheet.create({
         alignItems: "center",
         paddingHorizontal: 24,
         gap: 20,
+    },
+    completionButton: {
+        width: "100%",
     },
     resultPage: {
         paddingHorizontal: 23,
