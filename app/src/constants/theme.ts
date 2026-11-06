@@ -22,7 +22,7 @@ export const Colors = {
   red: "#FF0000",
   orange: "#FFA500",
   blue: "#0000FF",
-  yellow: "#FFFF00",
+  darkYellow: "#BA8E23",
   translucentGray: "#D9D9D94D",
 };
 

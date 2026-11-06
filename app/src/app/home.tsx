@@ -30,9 +30,22 @@ export default function HomeScreen() {
             contentFit="contain"
             style={styles.topLogo}
           />
-          <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
-            <Feather name="menu" size={35} />
-          </Pressable>
+          <View style={styles.headerRight}>
+            <Pressable onPress={() => console.log("알람 페이지로 이동")}>
+              <Image
+                source={require("@/assets/images/alarm_button.png")}
+                contentFit="contain"
+                style={styles.alarmButton}
+              />
+            </Pressable>
+            <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
+              <Image
+                source={require("@/assets/images/menu_button.png")}
+                contentFit="contain"
+                style={styles.menuButton}
+              />
+            </Pressable>
+          </View>
         </View>
         <ScrollView contentContainerStyle={styles.page} bounces={false}>
           <View style={styles.hero}>
@@ -46,6 +59,8 @@ export default function HomeScreen() {
               onStart={(item) => {
                 if (item.key === "form") {
                   router.push("/ordersheet");
+                } else if (item.key === "random") {
+                  router.push("/random_pick");
                 }
               }}
             />
@@ -71,7 +86,9 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
 
-              <Text style={styles.smallMenuText}>최근에 먹은 메뉴</Text>
+              <View style={styles.menusTitleView}>
+                <Text style={styles.smallMenuText}>최근에 먹은 메뉴</Text>
+              </View>
               <ScrollView
                 horizontal
                 style={styles.menuList}
@@ -135,6 +152,19 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingBottom: 10,
   },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 18,
+  },
+  alarmButton: {
+    width: 16,
+    height: 20,
+  },
+  menuButton: {
+    width: 20,
+    height: 18,
+  },
   topLogo: {
     width: 103,
     height: 62,
@@ -186,20 +216,6 @@ const styles = StyleSheet.create({
     fontSize: 11.71,
     color: Colors.white,
   },
-  indicatorSelected: {
-    marginHorizontal: 7.22,
-    backgroundColor: Colors.darkBrown,
-    width: 13,
-    height: 13,
-    borderRadius: 40,
-  },
-  indicatorUnselected: {
-    marginHorizontal: 7.22,
-    backgroundColor: Colors.lightBrown,
-    width: 13,
-    height: 13,
-    borderRadius: 40,
-  },
   smallButton: {
     flex: 1,
   },
@@ -218,7 +234,6 @@ const styles = StyleSheet.create({
   smallMenuText: {
     fontFamily: Fonts.brand,
     fontSize: 13.22,
-    marginBottom: 10,
     alignSelf: "flex-start",
   },
   menuList: {
@@ -238,9 +253,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignSelf: "stretch",
     justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
   },
   plusButton: {
-    width: 12,
-    height: 12,
+    width: 11,
+    height: 11,
   },
 });
