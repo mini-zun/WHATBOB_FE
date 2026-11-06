@@ -59,6 +59,8 @@ export default function HomeScreen() {
               onStart={(item) => {
                 if (item.key === "form") {
                   router.push("/ordersheet");
+                } else if (item.key === "random") {
+                  router.push("/random_pick");
                 }
               }}
             />
