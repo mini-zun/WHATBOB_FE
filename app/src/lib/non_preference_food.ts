@@ -1,7 +1,12 @@
 import type {
     AllergenListData,
     AllergenListResponse,
+    DislikeFoodData,
+    DislikeFoodResponse,
+    DislikeFoodUpdateRequest,
 } from "@/types/non_preference_food";
+
+import { apiFetch } from "./api";
 
 export async function getAllergens(): Promise<AllergenListData> {
     const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -58,4 +63,38 @@ export async function getAllergens(): Promise<AllergenListData> {
     } finally {
         clearTimeout(timeout);
     }
+}
+
+export async function getMyDislikeFoods(
+    signal?: AbortSignal,
+): Promise<DislikeFoodData> {
+    const result = await apiFetch<DislikeFoodResponse>(
+        "/api/users/me/dislikes",
+        { signal},
+    );
+
+    if (
+        result?.success !== true || !result.data || !Array.isArray(result.data.items)
+    ) {
+        throw new Error(result?.message || "비선호 목록 응답이 올바르지 않습니다.",);
+    }
+    return result.data;
+}
+
+export async function saveMyDislikeFoods(
+    request: DislikeFoodUpdateRequest,
+): Promise<DislikeFoodData> {
+    const result = await apiFetch<DislikeFoodResponse>(
+        "/api/users/me/dislikes",
+        {
+            method: "PUT",
+            body: request,
+        },
+    );
+    if(
+        result?.success !== true || !result.data || !Array.isArray(result.data.items)
+    ) {
+        throw new Error(result?.message || "비선호 저장 응답이 올바르지 않습니다.",);
+    }
+    return result.data;
 }

@@ -16,3 +16,22 @@ export type AllergenListResponse = {
     message: string | null;
 };
 
+export type DislikeFood = {
+    id: number;
+    keyword: string;
+};
+
+export type DislikeFoodData = {
+    items: DislikeFood[];
+    total_count: number;
+};
+
+export type DislikeFoodResponse = {
+    success: boolean;
+    message: string | null;
+    data: DislikeFoodData | null;
+};
+
+export type DislikeFoodUpdateRequest = {
+    keywords: string[];
+};
