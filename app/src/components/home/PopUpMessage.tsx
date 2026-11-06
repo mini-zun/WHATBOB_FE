@@ -6,20 +6,22 @@ import { Colors, Fonts } from "@/constants/theme";
 
 type Props = {
   visible: boolean;
+  isOnlyOk?: boolean;
   message: string;
-  leftButtonText: string;
+  leftButtonText?: string;
   rightButtonText: string;
-  onLeftButtonClick: () => void;
+  onLeftButtonClick?: () => void;
   onRightButtonClick: () => void;
   onClose?: () => void;
 };
 
 export function PopUpBox({
   visible,
+  isOnlyOk = false,
   message,
-  leftButtonText,
+  leftButtonText = "",
   rightButtonText,
-  onLeftButtonClick,
+  onLeftButtonClick = () => null,
   onRightButtonClick,
   onClose = onRightButtonClick,
 }: Props) {
@@ -53,10 +55,14 @@ export function PopUpBox({
           <Text style={styles.textStyle}>{message}</Text>
         </View>
         <View style={styles.popUpBottomLayout}>
-          <Pressable style={styles.popUpbutton} onPress={onLeftButtonClick}>
-            <Text style={styles.textStyle}>{leftButtonText}</Text>
-          </Pressable>
-          <View style={styles.buttonDivider} />
+          {!isOnlyOk && (
+            <>
+              <Pressable style={styles.popUpbutton} onPress={onLeftButtonClick}>
+                <Text style={styles.textStyle}>{leftButtonText}</Text>
+              </Pressable>
+              <View style={styles.buttonDivider} />
+            </>
+          )}
           <Pressable style={styles.popUpbutton} onPress={onRightButtonClick}>
             <Text style={styles.textStyle}>{rightButtonText}</Text>
           </Pressable>

@@ -63,8 +63,7 @@ export default function RoomScreen() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const shouldConfirmLeave =
-    room?.my_role === "HOST" && !closedReason && !left;
+  const shouldConfirmLeave = room?.my_role === "HOST" && !closedReason && !left;
 
   useEffect(() => {
     if (!shouldConfirmLeave) return;
@@ -124,10 +123,9 @@ export default function RoomScreen() {
     if (!mounted) return null;
     if (!roomId) {
       return {
+        isOnlyOk: true,
         message: "잘못된 방 주소예요.",
-        leftButtonText: "확인",
-        rightButtonText: "나가기",
-        onLeftButtonClick: handleBack,
+        rightButtonText: "확인",
         onRightButtonClick: handleBack,
       };
     }
@@ -135,7 +133,7 @@ export default function RoomScreen() {
       return {
         message:
           leaveError ??
-          "정말로 나가시겠습니까?\n방을 나가면 모두가 굶게됩니다😭",
+          "정말로 나가시겠습니까?\n방을 나가면 모두가 굶게돼요😭.",
         leftButtonText: leaving ? "나가는 중..." : "예",
         rightButtonText: "아니요",
         onLeftButtonClick: handleLeaveRoom,
@@ -144,10 +142,9 @@ export default function RoomScreen() {
     }
     if (closedReason) {
       return {
+        isOnlyOk: true,
         message: CLOSED_MESSAGES[closedReason] ?? CLOSED_MESSAGES.UNKNOWN,
-        leftButtonText: "확인",
-        rightButtonText: "나가기",
-        onLeftButtonClick: handleBack,
+        rightButtonText: "확인",
         onRightButtonClick: handleBack,
       };
     }

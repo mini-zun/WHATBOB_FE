@@ -95,7 +95,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         <MenuItem
           menuTitle="개인정보 처리방침"
           menuIcon="lock"
-          menuIconColor="yellow"
+          menuIconColor="darkYellow"
           onPress={() => setPrivacyOpen(true)}
         />
         <MenuItem
