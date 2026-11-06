@@ -9,6 +9,8 @@ import type {
     RecommendationFeedbackResponse,
 } from '@/types/order_sheet';
 
+import { apiFetch } from './api';
+
 export async function getOrderSheetQuestions():
     Promise<OrderSheetQuestionsData> {
     const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -69,121 +71,45 @@ export async function getOrderSheetQuestions():
 export async function submitOrderSheet(
     request: OrderSheetRecommendRequest,
 ): Promise<OrderSheetRecommendData> {
-    const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-
-    if (!apiBaseUrl) {
-        throw new Error("API 주소가 설정되지 않았습니다.");
-    }
-
     if (request.answers.length === 0) {
         throw new Error("제출할 답변이 없습니다.");
     }
 
-    const endpoint = `${apiBaseUrl.replace(/\/$/, "")}` + "/api/recommendations/order-sheet";
-
-    const headers: Record<string, string> = {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-    };
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-
-    try {
-        const response = await fetch(endpoint, {
+    const result = await apiFetch<OrderSheetRecommendResponse>(
+        "/api/recommendations/order-sheet",
+        {
             method: "POST",
-            headers,
-            body: JSON.stringify(request),
-            signal: controller.signal,
-        });
+            body: request,
+        },
+    );
 
-        if (!response.ok) {
-            throw new Error(
-                `추천을 받지 못했습니다. (HTTP ${response.status})`,
-            );
-        }
-
-        const result: OrderSheetRecommendResponse =
-            await response.json();
-
-        if (!result?.success || !result.data) {
-            throw new Error(
-                result?.message || "추천 응답이 올바르지 않습니다.",
-            );
-        }
-
-        if (
-            !Array.isArray(result.data.recommended_menus) ||
-            result.data.recommended_menus.length === 0
-        ) {
-            throw new Error("추천된 메뉴가 없습니다.");
-        }
-
-        return result.data;
-    } catch (error) {
-        if (controller.signal.aborted) {
-            throw new Error(
-                "추천 요청 시간이 초과되었습니다. 처리 결과를 확인한 뒤 다시 시도해 주세요.",
-            );
-        }
-
-        throw error;
-    } finally {
-        clearTimeout(timeout);
+    if (result?.success !== true || !result.data) {
+        throw new Error(
+            result?.message || "추천 응답이 올바르지 않습니다.",
+        );
     }
+
+    if (!Array.isArray(result.data.recommended_menus) || result.data.recommended_menus.length === 0) {
+        throw new Error("추천된 메뉴가 없습니다.");
+    }
+    return result.data;
 }
 
 export async function submitRecommendationFeedback(
     recommendationId: number,
     request: RecommendationFeedbackRequest,
 ): Promise<RecommendationFeedbackData> {
-    const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-
-    if (!apiBaseUrl) {
-        throw new Error("API 주소가 설정되지 않았습니다.");
-    }
-
-    const endpoint =
-        `${apiBaseUrl.replace(/\/$/, "")}` +
-        `/api/recommendations/${recommendationId}/feedback`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-
-    try {
-        const response = await fetch(endpoint, {
+    const result = await apiFetch<RecommendationFeedbackResponse>(
+        `/api/recommendations/${recommendationId}/feedback`,
+        {
             method: "POST",
-            headers: {
-                Accept: "application/json",
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(request),
-            signal: controller.signal,
-        });
+            body: request,
+        },
+    );
 
-        const result: RecommendationFeedbackResponse | null = await response.json().catch(() => null);
-
-        const serverMessage = typeof result?.message === "string" ? result.message.trim() : "";
-
-        if (!response.ok) {
-            throw new Error(
-                serverMessage ||
-                `피드백을 저장하지 못했습니다. (HTTP ${response.status})`,
-            );
-        }
-        if (result?.success !== true || !result.data) {
-            throw new Error(
-                serverMessage || "피드백 응답이 옳지 않습니다.",
-            );
-        }
-        return result.data;
-    } catch (error) {
-        if (controller.signal.aborted) {
-            throw new Error(
-                "피드백 요청 시간이 초과되었습니다. 저장 여부를 확인하지 못하였습니다."
-            );
-        }
-        throw error;
-    } finally {
-        clearTimeout(timeout);
+    if(result?.success !== true || !result.data) {
+        throw new Error(result?.message || "피드백 응답이 올ㄹ바르지 않습니다.",);
     }
+
+    return result.data;
 }
