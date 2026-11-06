@@ -46,6 +46,15 @@ export function handleUnauthorized() {
 }
 
 function getErrorMessage(data: unknown, status: number): string {
+    if (
+        data &&
+        typeof data === "object" &&
+        "message" in data &&
+        typeof data.message === "string" &&
+        data.message.trim()
+    ) {
+        return data.message.trim();
+    }
     if (data && typeof data === 'object' && 'detail' in data) {
         const { detail } = data;
         if (typeof detail === 'string') return detail;

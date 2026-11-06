@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Keyboard,
     KeyboardAvoidingView,
@@ -14,30 +14,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Colors, Fonts } from '@/constants/theme';
-
-const FOODS = [
-    '고수',
-    '고등어',
-    '고구마',
-    '고추',
-    '오이',
-    '토마토',
-    '가지',
-    '당근',
-    '버섯',
-    '양파',
-    '대파',
-    '마늘',
-    '우유',
-    '달걀',
-    '땅콩',
-    '새우',
-    '게',
-    '오징어',
-    '돼지고기',
-    '소고기',
-    '닭고기',
-];
+import { getAllergens, getMyDislikeFoods, saveMyDislikeFoods } from '@/lib/non_preference_food';
+import type { AllergenItem } from '@/types/non_preference_food';
 
 function SearchIcon() {
     return (
@@ -52,12 +30,55 @@ export default function FoodPreferencesScreen() {
     const [isSearching, setIsSearching] = useState(false);
     const [search, setSearch] = useState('');
     const [selectedFoods, setSelectedFoods] = useState<string[]>([]);
+    const [foods, setFoods] = useState<AllergenItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [retryCount, setRetryCount] = useState(0);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+    const saveInProgress = useRef(false);
 
     const hasSelectedFoods = selectedFoods.length > 0;
 
-    const filteredFoods = FOODS.filter((food) =>
-        food.includes(search.trim()),
+    const filteredFoods = foods.filter((food) =>
+        food.name.includes(search.trim()),
     );
+
+    useEffect(() => {
+        let active = true;
+
+        const loadFoods = async () => {
+            setIsLoading(true);
+            setLoadError(null);
+            try {
+                const [allergenData, dislikeData] = await Promise.all([
+                    getAllergens(),
+                    getMyDislikeFoods(),
+                ]);
+
+                if (active) {
+                    setFoods(allergenData.allergens);
+                    setSelectedFoods(dislikeData.items.map((item) => item.keyword),);
+                }
+            } catch (error) {
+                if (active) {
+                    setLoadError(
+                        error instanceof Error ? error.message : '목록을 불러오지 못했습니다.',
+                    );
+                }
+            } finally {
+                if (active) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        void loadFoods();
+
+        return () => {
+            active = false;
+        };
+    }, [retryCount]);
 
     const openSearch = () => {
         setSearch('');
@@ -70,20 +91,48 @@ export default function FoodPreferencesScreen() {
         setSearch('');
     };
 
-    const toggleFood = (food: string) => {
+    const toggleFood = (keyword: string) => {
+        if (isLoading || loadError || saveInProgress.current) return;
+
         setSelectedFoods((previous) =>
-            previous.includes(food)
-                ? previous.filter((item) => item !== food)
-                : [...previous, food],
+            previous.includes(keyword) ? previous.filter((item) => item !== keyword) : [...previous, keyword],
         );
     };
 
     const handleSkip = () => {
+        if (saveInProgress.current) return;
         router.replace('/home');
     };
 
-    const handleComplete = () => {
-        router.replace('/home');
+    const handleComplete = async () => {
+        if (
+            saveInProgress.current ||
+            isLoading ||
+            loadError
+        ) {
+            return;
+        }
+
+        saveInProgress.current = true;
+        setIsSaving(true);
+        setSaveError(null);
+
+        try {
+            await saveMyDislikeFoods({
+                keywords: selectedFoods,
+            });
+
+            router.replace('/home');
+        } catch (error) {
+            setSaveError(
+                error instanceof Error
+                    ? error.message
+                    : '비선호 정보를 저장하지 못했습니다.',
+            );
+        } finally {
+            saveInProgress.current = false;
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -141,15 +190,14 @@ export default function FoodPreferencesScreen() {
                             keyboardShouldPersistTaps="handled"
                         >
                             {filteredFoods.map((food) => {
-                                const checked = selectedFoods.includes(food);
-
+                                const checked = selectedFoods.includes(food.name);
                                 return (
                                     <Pressable
-                                        key={food}
+                                        key={food.id}
                                         accessibilityRole="checkbox"
-                                        accessibilityLabel={food}
+                                        accessibilityLabel={food.name}
                                         accessibilityState={{ checked }}
-                                        onPress={() => toggleFood(food)}
+                                        onPress={() => toggleFood(food.name)}
                                         style={({ pressed }) => [
                                             styles.foodRow,
                                             pressed && styles.pressed,
@@ -166,17 +214,68 @@ export default function FoodPreferencesScreen() {
                                             )}
                                         </View>
 
-                                        <Text style={styles.foodName}>{food}</Text>
+                                        <Text style={styles.foodName}>{food.name}</Text>
                                     </Pressable>
                                 );
                             })}
 
-                            {filteredFoods.length === 0 && (
+                            {isLoading ? (
+                                <Text style={styles.emptyText}>
+                                    목록을 불러오는 중이에요.
+                                </Text>
+                            ) : loadError ? (
+                                <View>
+                                    <Text accessibilityRole="alert" style={styles.emptyText}>
+                                        {loadError}
+                                    </Text>
+                                    <Pressable
+                                        accessibilityRole="button"
+                                        onPress={() => setRetryCount((count) => count + 1)}
+                                        style={[styles.button, styles.retryButton]}
+                                    >
+                                        <Text style={styles.completeText}>다시 시도</Text>
+                                    </Pressable>
+                                </View>
+                            ) : filteredFoods.length === 0 ? (
                                 <Text style={styles.emptyText}>
                                     검색 결과가 없어요.
                                 </Text>
-                            )}
+                            ) : null}
                         </ScrollView>
+
+                        <View style={styles.searchFooter}> 
+                            {saveError && (
+                                <Text
+                                    accessibilityRole="alert"
+                                    style={[
+                                        styles.emptyText,
+                                        { color: Colors.errorText },
+                                    ]}
+                                >
+                                    {saveError}
+                                </Text>
+                            )}
+
+                            <Pressable
+                                accessibilityRole="button"
+                                onPress={() => void handleComplete()}
+                                disabled={isSaving || isLoading || !!loadError}
+                                accessibilityState={{
+                                    disabled: isSaving || isLoading || !!loadError,
+                                    busy: isSaving,
+                                }}
+                                style={({ pressed }) => [
+                                    styles.button,
+                                    styles.completeButton,
+                                    styles.searchCompleteButton,
+                                    pressed && styles.pressed,
+                                ]}
+                            >
+                                <Text style={styles.completeText}>
+                                    {isSaving ? '저장 중...' : '설정 완료'}
+                                </Text>
+                            </Pressable>
+                        </View>
                     </View>
                 ) : (
                     <ScrollView
@@ -238,18 +337,18 @@ export default function FoodPreferencesScreen() {
                                     </Text>
 
                                     <View style={styles.tags}>
-                                        {selectedFoods.map((food) => (
+                                        {selectedFoods.map((keyword) => (
                                             <Pressable
-                                                key={food}
+                                                key={keyword}
                                                 accessibilityRole="button"
-                                                accessibilityLabel={`${food} 비선호 음식에서 제거`}
-                                                onPress={() => toggleFood(food)}
+                                                accessibilityLabel={`${keyword} 비선호 음식에서 제거`}
+                                                onPress={() => toggleFood(keyword)}
                                                 style={({ pressed }) => [
                                                     styles.tag,
                                                     pressed && styles.pressed,
                                                 ]}
                                             >
-                                                <Text style={styles.tagText}>{food}</Text>
+                                                <Text style={styles.tagText}>{keyword}</Text>
                                             </Pressable>
                                         ))}
                                     </View>
@@ -257,10 +356,24 @@ export default function FoodPreferencesScreen() {
                             )}
                         </View>
 
+                        {saveError && (
+                            <Text
+                                accessibilityRole="alert"
+                                style={[
+                                    styles.emptyText,
+                                    { color: Colors.errorText },
+                                ]}
+                            >
+                                {saveError}
+                            </Text>
+                        )}
+
                         <View style={styles.footer}>
                             <Pressable
                                 accessibilityRole="button"
                                 onPress={handleSkip}
+                                disabled={isSaving}
+                                accessibilityState={{ disabled: isSaving }}
                                 style={({ pressed }) => [
                                     styles.button,
                                     styles.skipButton,
@@ -272,14 +385,19 @@ export default function FoodPreferencesScreen() {
 
                             <Pressable
                                 accessibilityRole="button"
-                                onPress={handleComplete}
+                                onPress={() => handleComplete()}
+                                disabled={isSaving || isLoading || !!loadError}
+                                accessibilityState={{
+                                    disabled: isSaving || isLoading || !!loadError,
+                                    busy: isSaving,
+                                }}
                                 style={({ pressed }) => [
                                     styles.button,
                                     styles.completeButton,
                                     pressed && styles.pressed,
                                 ]}
                             >
-                                <Text style={styles.completeText}>설정 완료</Text>
+                                <Text style={styles.completeText}>{isSaving ? '저장 중...' : '설정 완료'}</Text>
                             </Pressable>
                         </View>
                     </ScrollView>
@@ -476,6 +594,9 @@ const styles = StyleSheet.create({
         flex: 1.6,
         backgroundColor: '#553D26',
     },
+    retryButton: {
+        backgroundColor: Colors.darkBrown,
+    },
     skipText: {
         fontFamily: Fonts.bodyBold,
         fontSize: 20,
@@ -563,5 +684,17 @@ const styles = StyleSheet.create({
     },
     pressed: {
         opacity: 0.65,
+    },
+
+    searchFooter: {
+        alignSelf: "center",
+        width: '100%',
+        maxWidth: 305,
+        paddingTop: 24,
+        paddingBottom: 40,
+    },
+    searchCompleteButton: {
+        flex: 0,
+        width: '100%',
     },
 });
