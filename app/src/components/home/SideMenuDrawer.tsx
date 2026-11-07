@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react";
 import type { ComponentProps } from "react";
-import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
+import { BackHandler, Pressable, StyleSheet, Text, View, Platform } from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
   SlideInRight,
   SlideOutRight,
 } from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
+import { Image } from "expo-image";
 import Constants from "expo-constants";
 
 import { Colors, Fonts } from "@/constants/theme";
 import { PrivacyPolicyPopUp } from "./PrivacyPolicyPop";
+import { readWebSession } from "@/lib/web-auth";
 
 type Props = {
   visible: boolean;
@@ -23,8 +24,6 @@ type Props = {
 const APP_VERSION = Constants.expoConfig?.version ?? "";
 
 export function SideMenuDrawer({ visible, onClose }: Props) {
-  const insets = useSafeAreaInsets();
-
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [pendingPath, setPendingPath] = useState<Href | null>(null);
 
@@ -54,6 +53,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
 
   if (!visible) return null;
 
+  const user = Platform.OS === "web" && typeof window !== "undefined" ? readWebSession()?.user : null;
+  const nickname = user?.nickname?.trim() || "사용자";
+  const profileimage = user?.profile_image?.trim();
+
   return (
     <>
       <Animated.View
@@ -70,8 +73,13 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         style={[styles.panel]}
       >
         <View style={styles.profileBack}>
-          <View style={styles.profileIconSec} />
-          <Text style={styles.userName}>USER 님</Text>
+          <Image source={
+            profileimage ? { uri: profileimage } : require("@/assets/images/empty_user_icon.png")
+          }
+            contentFit="cover"
+            style={styles.profileIconSec}
+          />
+          <Text style={styles.userName} numberOfLines={1}>{nickname}</Text>
           <Text style={styles.profileDesc}>오늘도 맛있는 하루 되세요!</Text>
         </View>
         <Text style={styles.menuTitle}>나의 활동</Text>
@@ -166,7 +174,6 @@ const styles = StyleSheet.create({
     width: "80%",
     maxWidth: 500,
     backgroundColor: Colors.background,
-    // paddingHorizontal: 24,
     borderTopLeftRadius: 20,
     borderBottomLeftRadius: 20,
   },
@@ -238,5 +245,3 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 });
-
-// { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 },
