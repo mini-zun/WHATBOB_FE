@@ -1,9 +1,37 @@
-import { isAuthResponse, loginWithKakaoCode, type AuthResponse } from './auth';
+import {
+    prepareAuthentication,
+    createAnonymousUser,
+    issueToken,
+    isAuthResponse,
+    loginWithKakaoCode,
+    type AuthResponse
+} from './auth';
 
 const REQUEST_KEY = 'kakao_login_request';
 const SESSION_KEY = 'whatbob_session';
 const REQUEST_TTL = 10 * 60 * 1000;
 let completion: { code: string; state: string; promise: Promise<void> } | null = null;
+let initialization: Promise<AuthResponse> | null = null;
+
+export function initializeAuthentication(): Promise<AuthResponse> {
+    if (initialization) return initialization;
+
+    initialization = (async () => {
+        const preparation = await prepareAuthentication();
+
+        const session = preparation.next_action === 'CREATE_USER'
+            ? await createAnonymousUser()
+            : await issueToken();
+
+        saveWebSession(session);
+        return session;
+    })().catch((error) => {
+        initialization = null;
+        throw error;
+    });
+
+    return initialization;
+}
 
 function storage() {
     if (typeof window === 'undefined') throw new Error('웹에서 로그인을 진행해 주세요.');
@@ -39,9 +67,12 @@ export function clearWebSession() {
     storage().removeItem(SESSION_KEY);
     clearLoginRequest();
     completion = null;
+    initialization = null;
+
 }
 
 export function completeKakaoLogin(code: string, state: string): Promise<void> {
+
     if (completion?.code === code && completion.state === state) return completion.promise;
     const promise = (async () => {
         const raw = storage().getItem(REQUEST_KEY);
@@ -54,8 +85,17 @@ export function completeKakaoLogin(code: string, state: string): Promise<void> {
         clearLoginRequest();
         if (!code) throw new Error('인가 코드가 전달되지 않았습니다.');
         const session = await loginWithKakaoCode(code);
-        storage().setItem(SESSION_KEY, JSON.stringify(session));
+        saveWebSession(session);
+
     })();
     completion = { code, state, promise };
     return promise;
+}
+
+export function saveWebSession(session: AuthResponse): void {
+    if (!isAuthResponse(session)) {
+        throw new Error('인증 응답이 올바르지 않습니다.');
+    }
+
+    storage().setItem(SESSION_KEY, JSON.stringify(session));
 }
