@@ -1,4 +1,4 @@
-import { isKakaoLoginResponse, loginWithKakaoCode, type KakaoLoginResponse } from './auth';
+import { isAuthResponse, loginWithKakaoCode, type AuthResponse } from './auth';
 
 const REQUEST_KEY = 'kakao_login_request';
 const SESSION_KEY = 'whatbob_session';
@@ -23,12 +23,12 @@ export function clearLoginRequest() {
     storage().removeItem(REQUEST_KEY);
 }
 
-export function readWebSession(): KakaoLoginResponse | null {
+export function readWebSession(): AuthResponse | null {
     const raw = storage().getItem(SESSION_KEY);
     if (!raw) return null;
     try {
         const session: unknown = JSON.parse(raw);
-        if (isKakaoLoginResponse(session)) return session;
+        if (isAuthResponse(session)) return session;
     } catch {
     }
     storage().removeItem(SESSION_KEY);

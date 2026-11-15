@@ -49,22 +49,29 @@ export async function getKakaoLoginUrl(state: string): Promise<string> {
     }
 }
 
-export type KakaoLoginResponse = {
+export type AuthResponse = {
     access_token: string;
     token_type: string;
+    expires_in: number;
     is_new_user: boolean;
     user: {
         id: number;
-        kakao_id: number;
-        nickname: string | null;
-        email: string | null;
-        profile_image: string | null;
+        uuid: string;
+        kakao_id: number | null;
+        nickname?: string | null;
+        email?: string | null;
+        profile_image?: string | null;
     };
 };
 
+export type PrepareAuthentication = {
+    next_action: "CREATE_USER" | "ISSUE_TOKEN";
+    notice?: "PREVIOUS_SESSION_UNAVAILABLE" | null;
+}
+
 export async function loginWithKakaoCode(
     code: string
-): Promise<KakaoLoginResponse> {
+): Promise<AuthResponse> {
     const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
     if (!apiBaseUrl) throw new Error('API 주소가 설정되지 않았습니다.');
 
@@ -82,7 +89,7 @@ export async function loginWithKakaoCode(
         );
         if (!response.ok) throw new Error('카카오 로그인에 실패했습니다. 다시 로그인해 주세요.');
         const data: unknown = await response.json();
-        if (!isKakaoLoginResponse(data)) throw new Error('로그인 응답이 올바르지 않습니다.');
+        if (!isAuthResponse(data)) throw new Error('로그인 응답이 올바르지 않습니다.');
         return data;
     } catch (error) {
         if (controller.signal.aborted) throw new Error('요청 시간이 초과되었습니다. 다시 로그인해 주세요.');
@@ -92,15 +99,118 @@ export async function loginWithKakaoCode(
     }
 }
 
-export function isKakaoLoginResponse(data: unknown): data is KakaoLoginResponse {
+export function isAuthResponse(data: unknown): data is AuthResponse {
     if (!data || typeof data !== 'object') return false;
-    const value = data as Partial<KakaoLoginResponse>;
+    const value = data as Partial<AuthResponse>;
     const user = value.user;
     return typeof value.access_token === 'string' && value.access_token.length > 0 &&
         typeof value.token_type === 'string' && value.token_type.toLowerCase() === 'bearer' &&
         typeof value.is_new_user === 'boolean' && !!user &&
-        typeof user.id === 'number' && typeof user.kakao_id === 'number' &&
-        (user.nickname === null || typeof user.nickname === 'string') &&
-        (user.email === null || typeof user.email === 'string') &&
-        (user.profile_image === null || typeof user.profile_image === 'string');
+        typeof value.expires_in === 'number' &&
+        typeof user.id === 'number' && typeof user.uuid === 'string' &&
+        (user.kakao_id === null || typeof user.kakao_id === 'number') &&
+        (user.nickname === undefined || user.nickname === null || typeof user.nickname === 'string') &&
+        (user.email === undefined || user.email === null || typeof user.email === 'string') &&
+        (user.profile_image === undefined || user.profile_image === null || typeof user.profile_image === 'string');
+}
+
+export async function prepareAuthentication(): Promise<PrepareAuthentication> {
+    const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+    if (!apiBaseUrl) throw new Error("API 주소가 설정되지 않았습니다.");
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    try {
+        const response = await fetch(
+            `${apiBaseUrl.replace(/\/$/, '')}/api/auth/preparations`,
+            {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    ...getApiHeaders(apiBaseUrl),
+                    'X-Whatbob-Request': '1',
+                },
+                signal: controller.signal,
+            },
+        );
+
+        if (!response.ok) {
+            throw new Error(`인증 준비에 실패했습니다. (HTTP ${response.status})`);
+        }
+
+        const data: unknown = await response.json();
+
+        if (
+            !data || typeof data !== 'object' || !('next_action' in data) ||
+            !(data.next_action === 'CREATE_USER' || data.next_action === 'ISSUE_TOKEN') ||
+            (
+                'notice' in data && data.notice !== undefined && data.notice !== null &&
+                data.notice !== 'PREVIOUS_SESSION_UNAVAILABLE'
+            )
+        ) {
+            throw new Error('인증 준비 응답이 올바르지 않습니다.');
+        }
+
+        return data as PrepareAuthentication;
+    } catch (error) {
+        if (controller.signal.aborted) {
+            throw new Error('인증 준비 시간이 초과되었습니다. 다시 시도해 주세요.');
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+async function requestAuthToken(
+    path: '/api/auth/anonymous-users' | '/api/auth/tokens',
+): Promise<AuthResponse> {
+    const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+    if (!apiBaseUrl) throw new Error('API 주소가 설정되지 않았습니다.');
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    try {
+        const response = await fetch(
+            `${apiBaseUrl.replace(/\/$/, '')}${path}`,
+            {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    ...getApiHeaders(apiBaseUrl),
+                    'X-Whatbob-Request': '1',
+                },
+                signal: controller.signal,
+            },
+        );
+
+        if (!response.ok) {
+            throw new Error(`인증에 실패했습니다. (HTTP ${response.status})`);
+        }
+
+        const data: unknown = await response.json();
+
+        if (!isAuthResponse(data)) {
+            throw new Error('인증 응답이 올바르지 않습니다.');
+        }
+
+        return data;
+    } catch (error) {
+        if (controller.signal.aborted) {
+            throw new Error('인증 요청 시간이 초과되었습니다. 다시 시도해 주세요.');
+        }
+        throw error;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+export function createAnonymousUser(): Promise<AuthResponse> {
+    return requestAuthToken('/api/auth/anonymous-users');
+}
+
+export function issueToken(): Promise<AuthResponse> {
+    return requestAuthToken('/api/auth/tokens');
 }
