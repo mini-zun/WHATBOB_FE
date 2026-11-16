@@ -12,6 +12,22 @@ const SESSION_KEY = 'whatbob_session';
 const REQUEST_TTL = 10 * 60 * 1000;
 let completion: { code: string; state: string; promise: Promise<void> } | null = null;
 let initialization: Promise<AuthResponse> | null = null;
+let tokenRefresh: Promise<AuthResponse> | null = null;
+
+export function refreshAuthentication(): Promise<AuthResponse> {
+    if(tokenRefresh) return tokenRefresh;
+
+    tokenRefresh = (async() => {
+        const session = await issueToken();
+
+        saveWebSession(session);
+        return session;
+    })().finally(() => {
+        tokenRefresh = null;
+    });
+
+    return tokenRefresh;
+}
 
 export function initializeAuthentication(): Promise<AuthResponse> {
     if (initialization) return initialization;
