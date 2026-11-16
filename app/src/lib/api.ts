@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { Platform } from "react-native";
 
-import { clearWebSession, readWebSession } from "./web-auth";
+import { clearWebSession, readWebSession, refreshAuthentication } from "./web-auth";
 
 const REQUEST_TIMEOUT = 10000;
 
@@ -53,13 +53,13 @@ export function getCurrentUserId(): number | null {
 }
 
 function getErrorCode(data: unknown): string | undefined {
-  if(!data || typeof data !== "object" || !("detail" in data)){
+  if (!data || typeof data !== "object" || !("detail" in data)) {
     return undefined;
   }
 
   const detail = data.detail;
 
-  if(!detail || typeof detail !== "object" || !("code" in detail)){
+  if (!detail || typeof detail !== "object" || !("code" in detail)) {
     return undefined;
   }
 
@@ -80,7 +80,7 @@ function getErrorMessage(data: unknown, status: number): string {
     const { detail } = data;
     if (typeof detail === "string") return detail;
 
-    if(
+    if (
       detail && typeof detail === "object" &&
       "message" in detail && typeof detail.message === "string" &&
       detail.message.trim()
@@ -93,7 +93,7 @@ function getErrorMessage(data: unknown, status: number): string {
   return `요청에 실패했습니다. (HTTP ${status})`;
 }
 
-export async function apiFetch<T>(
+async function requestOnce<T>(
   path: string,
   options: ApiOptions = {},
 ): Promise<T> {
@@ -105,8 +105,11 @@ export async function apiFetch<T>(
   if (auth) {
     const token = getAccessToken();
     if (!token) {
-      handleUnauthorized();
-      throw new ApiError("로그인이 필요합니다.", 401);
+      throw new ApiError(
+        "인증 정보가 없습니다. 다시 시작해 주세요.",
+        401,
+        "ACCESS_TOKEN_MISSING",
+      );
     }
     headers.Authorization = `Bearer ${token}`;
   }
@@ -131,15 +134,6 @@ export async function apiFetch<T>(
     const data: unknown =
       response.status === 204 ? null : await response.json().catch(() => null);
 
-    if (response.status === 401 && auth) {
-      handleUnauthorized();
-
-      throw new ApiError(
-        getErrorMessage(data, response.status),
-        response.status,
-        getErrorCode(data),
-      );
-    }
     if (!response.ok)
       throw new ApiError(
         getErrorMessage(data, response.status),
@@ -159,5 +153,39 @@ export async function apiFetch<T>(
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener("abort", cancel);
+  }
+
+}
+
+export async function apiFetch<T>(
+  path: string,
+  options: ApiOptions = {},
+): Promise<T> {
+  const originalToken = getAccessToken();
+
+  try {
+    return await requestOnce<T>(path, options);
+  } catch (error) {
+    if (
+      options.auth === false ||
+      !(error instanceof ApiError) ||
+      error.status !== 401 ||
+      error.code !== "ACCESS_TOKEN_EXPIRED"
+    ) {
+      throw error;
+    }
+
+    options.signal?.throwIfAborted();
+
+    const currentToken = getAccessToken();
+    if (!currentToken) throw error;
+
+    if (currentToken === originalToken) {
+      await refreshAuthentication();
+    }
+
+    options.signal?.throwIfAborted();
+
+    return requestOnce<T>(path, options);
   }
 }
