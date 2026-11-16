@@ -186,12 +186,31 @@ async function requestAuthToken(
             },
         );
 
+        const data: unknown = await response.json().catch(() => null);
+
         if (!response.ok) {
-            throw new Error(`인증에 실패했습니다. (HTTP ${response.status})`);
+            let code: string | undefined;
+            let message = `인증에 실패했습니다. (HTTP ${response.status})`;
+
+            if(data && typeof data === 'object' && 'detail' in data) {
+                const detail = data.detail;
+
+                if(detail && typeof detail === 'object') {
+                    if('code' in detail && typeof detail.code === 'string') {
+                        code = detail.code;
+                    }
+
+                    if(
+                        'message' in detail &&
+                        typeof detail.message === 'string' &&
+                        detail.message.trim()
+                    ) {
+                        message = detail.message.trim();
+                    }
+                }
+            }
+            throw new AuthApiError(message, response.status, code);
         }
-
-        const data: unknown = await response.json();
-
         if (!isAuthResponse(data)) {
             throw new Error('인증 응답이 올바르지 않습니다.');
         }
@@ -213,4 +232,15 @@ export function createAnonymousUser(): Promise<AuthResponse> {
 
 export function issueToken(): Promise<AuthResponse> {
     return requestAuthToken('/api/auth/tokens');
+}
+
+export class AuthApiError extends Error {
+    constructor(
+        message: string,
+        readonly status: number,
+        readonly code?: string,
+    ) {
+        super(message);
+        this.name = 'AuthApiError';
+    }
 }
