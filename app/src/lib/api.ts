@@ -52,6 +52,20 @@ export function getCurrentUserId(): number | null {
   return readWebSession()?.user.id ?? null;
 }
 
+function getErrorCode(data: unknown): string | undefined {
+  if(!data || typeof data !== "object" || !("detail" in data)){
+    return undefined;
+  }
+
+  const detail = data.detail;
+
+  if(!detail || typeof detail !== "object" || !("code" in detail)){
+    return undefined;
+  }
+
+  return typeof detail.code === "string" ? detail.code : undefined;
+}
+
 function getErrorMessage(data: unknown, status: number): string {
   if (
     data &&
@@ -65,6 +79,14 @@ function getErrorMessage(data: unknown, status: number): string {
   if (data && typeof data === "object" && "detail" in data) {
     const { detail } = data;
     if (typeof detail === "string") return detail;
+
+    if(
+      detail && typeof detail === "object" &&
+      "message" in detail && typeof detail.message === "string" &&
+      detail.message.trim()
+    ) {
+      return detail.message.trim();
+    }
     if (Array.isArray(detail) && typeof detail[0]?.msg === "string")
       return detail[0].msg;
   }
@@ -111,12 +133,18 @@ export async function apiFetch<T>(
 
     if (response.status === 401 && auth) {
       handleUnauthorized();
-      throw new ApiError("로그인이 만료되었습니다. 다시 로그인해 주세요.", 401);
+
+      throw new ApiError(
+        getErrorMessage(data, response.status),
+        response.status,
+        getErrorCode(data),
+      );
     }
     if (!response.ok)
       throw new ApiError(
         getErrorMessage(data, response.status),
         response.status,
+        getErrorCode(data),
       );
     return data as T;
   } catch (error) {
