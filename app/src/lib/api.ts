@@ -22,6 +22,8 @@ type ApiOptions = {
   body?: unknown;
   auth?: boolean;
   signal?: AbortSignal;
+  headers?: Record<string, string>;
+  credentials?: "omit" | "same-origin" | "include";
 };
 
 export function getApiBaseUrl(): string {
@@ -97,10 +99,14 @@ async function requestOnce<T>(
   path: string,
   options: ApiOptions = {},
 ): Promise<T> {
-  const { method = "GET", body, auth = true, signal } = options;
+  const { method = "GET", body, auth = true, signal, headers: extraHeaders, credentials, } = options;
   const apiBaseUrl = getApiBaseUrl();
 
-  const headers: Record<string, string> = getApiHeaders(apiBaseUrl);
+  const headers: Record<string, string> = {
+    ...getApiHeaders(apiBaseUrl),
+    ...extraHeaders,
+  };
+  
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (auth) {
     const token = getAccessToken();
@@ -130,6 +136,7 @@ async function requestOnce<T>(
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
+      credentials,
     });
     const data: unknown =
       response.status === 204 ? null : await response.json().catch(() => null);
