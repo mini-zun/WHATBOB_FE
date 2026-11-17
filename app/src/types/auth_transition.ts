@@ -6,12 +6,12 @@ export type TransitionPrepareRequest = {
     action: TransitionAction;
     code?: string | null;
     state?: string | null;
-    expected_stsate?: string | null;
+    expected_state?: string | null; 
     operation_key?: string | null;
-    trainsition_id?: string | null;
+    transition_id?: string | null;
 };
 
-export type TransitionPreareResponse = {
+export type TransitionPrepareResponse = {
     transition_id: string;
     action: TransitionAction;
     status: "PREPARED";
