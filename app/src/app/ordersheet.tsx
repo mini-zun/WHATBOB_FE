@@ -18,6 +18,29 @@ import type {
 
 
 import { Colors, Fonts } from "@/constants/theme";
+import { AuthApiError } from "@/lib/auth";
+import { ApiError } from "@/lib/api";
+
+function getAuthRestartMessage(error: unknown): string | null {
+    if (
+        !(error instanceof AuthApiError) &&
+        !(error instanceof ApiError)
+    ) {
+        return null;
+    }
+
+    if (
+        error.status === 401 && (
+            error.code === 'SESSION_EXPIRED' ||
+            error.code === 'SESSION_REVOKED' ||
+            error.code === 'SESSION_NOT_FOUND' ||
+            error.code === 'ACCESS_TOKEN_MISSING'
+        )
+    ) {
+        return "인증이 종료되었습니다. 다시 시작하면 홈으로 이동하며, 진행 중인 주문서와 피드백은 자동 제출되지 않습니다.";
+    }
+    return null;
+}
 
 export default function OrderSheetScreen() {
     const { height } = useWindowDimensions();
@@ -38,6 +61,7 @@ export default function OrderSheetScreen() {
     const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
     const [feedbackError, setFeedbackError] = useState<string | null>(null);
     const [isAccepted, setIsAccepted] = useState(false);
+    const [authRestartMessage, setAuthRestartMessage] = useState<string | null>(null);
 
     const feedbackInProgress = useRef(false);
     const completedFeedback = useRef(new Set<string>());
@@ -72,6 +96,11 @@ export default function OrderSheetScreen() {
                 }
             } catch (error) {
                 if (!cancelled) {
+                    const restartMessage = getAuthRestartMessage(error);
+                    if (restartMessage) {
+                        setAuthRestartMessage(restartMessage);
+                    }
+
                     setError(
                         error instanceof Error ? error.message : "질문을 불러오지 못했습니다.",
                     );
@@ -140,6 +169,11 @@ export default function OrderSheetScreen() {
             completedFeedback.current.clear();
             setRecommendation(data);
         } catch (error) {
+            const restartMessage = getAuthRestartMessage(error);
+            if (restartMessage) {
+                setAuthRestartMessage(restartMessage);
+            }
+
             setSubmitError(
                 error instanceof Error
                     ? error.message
@@ -232,6 +266,11 @@ export default function OrderSheetScreen() {
 
             setRecommendationIndex(recommendationIndex + 1);
         } catch (error) {
+            const restartMessage = getAuthRestartMessage(error);
+            if (restartMessage) {
+                setAuthRestartMessage(restartMessage);
+            }
+
             setFeedbackError(
                 error instanceof Error
                     ? error.message
@@ -242,6 +281,35 @@ export default function OrderSheetScreen() {
             setIsFeedbackSubmitting(false);
         }
     };
+
+    if (authRestartMessage) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <View style={[styles.page, styles.statusPage]}>
+                    <Text
+                        accessibilityRole="alert"
+                        style={styles.skipText}
+                    >
+                        {authRestartMessage}
+                    </Text>
+
+                    <Pressable
+                        accessibilityRole="button"
+                        style={styles.answerButton}
+                        onPress={() => {
+                            if (typeof window !== "undefined") {
+                                window.location.replace("/");
+                            }
+                        }}
+                    >
+                        <Text style={styles.answerButtonText}>
+                            인증 다시 시작
+                        </Text>
+                    </Pressable>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     if (isLoading || error || !question) {
         return (
