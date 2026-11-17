@@ -1,4 +1,5 @@
 import {
+    AuthApiError,
     prepareAuthentication,
     createAnonymousUser,
     issueToken,
@@ -15,14 +16,40 @@ let initialization: Promise<AuthResponse> | null = null;
 let tokenRefresh: Promise<AuthResponse> | null = null;
 
 export function refreshAuthentication(): Promise<AuthResponse> {
-    if(tokenRefresh) return tokenRefresh;
+    if (tokenRefresh) return tokenRefresh;
 
-    tokenRefresh = (async() => {
+    tokenRefresh = (async () => {
         const session = await issueToken();
 
         saveWebSession(session);
         return session;
-    })().finally(() => {
+    })().catch((error: unknown) => {
+        if (!(error instanceof AuthApiError)) {
+            throw error;
+        }
+
+        const sessionEnded =
+            error.status === 401 &&
+            (
+                error.code === 'SESSION_EXPIRED' ||
+                error.code === 'SESSION_REVOKED' ||
+                error.code === 'SESSION_NOT_FOUND'
+            );
+
+        if (sessionEnded) {
+            clearWebSession();
+
+            throw new AuthApiError('인증이 종료되었습니다. 인증을 다시 시작해 주세요.', error.status, error.code,);
+        }
+        if (
+            error.status === 409 &&
+            error.code === 'AUTH_CONTEXT_CHANGED'
+        ) {
+            throw new AuthApiError('다른 탭에서 인증 정보가 변경되었습니다. 새로고침해 주세요.', error.status, error.code,);
+        }
+
+        throw error;
+    }).finally(() => {
         tokenRefresh = null;
     });
 
