@@ -8,6 +8,13 @@ import {
     type AuthResponse
 } from './auth';
 
+
+export type KakaoLinkRequest = {
+    state: string;
+    operation_key: string;
+    createdAt: number;
+};
+
 const REQUEST_KEY = 'kakao_login_request';
 const SESSION_KEY = 'whatbob_session';
 const REQUEST_TTL = 10 * 60 * 1000;
@@ -85,7 +92,14 @@ export function prepareKakaoLogin(loginUrl: string): string {
     const url = new URL(loginUrl);
     const state = url.searchParams.get('state') || window.crypto.randomUUID();
     url.searchParams.set('state', state);
-    storage().setItem(REQUEST_KEY, JSON.stringify({ state, createdAt: Date.now() }));
+
+    const request: KakaoLinkRequest = {
+        state,
+        operation_key: window.crypto.randomUUID(),
+        createdAt: Date.now(),
+    };
+
+    storage().setItem(REQUEST_KEY, JSON.stringify(request));
     completion = null;
     return url.toString();
 }
@@ -141,4 +155,36 @@ export function saveWebSession(session: AuthResponse): void {
     }
 
     storage().setItem(SESSION_KEY, JSON.stringify(session));
+}
+
+export function readKakaoLinkRequest(state: string): KakaoLinkRequest {
+    const raw = storage().getItem(REQUEST_KEY);
+    let data: unknown;
+
+    try {
+        data = raw ? JSON.parse(raw) : null;
+    } catch {
+        throw new Error('카카오 연결 요청 정보가 올바르지 않습니다.');
+    }
+
+    if (!data || typeof data !== 'object') {
+        throw new Error('카카오 연결 요청 정보가 없습니다.');
+    }
+
+    const request = data as Partial<KakaoLinkRequest>;
+
+    if (
+        !state ||
+        request.state !== state ||
+        typeof request.operation_key !== 'string' ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+            .test(request.operation_key) ||
+        typeof request.createdAt !== 'number' ||
+        !Number.isFinite(request.createdAt) ||
+        Date.now() - request.createdAt < 0 ||
+        Date.now() - request.createdAt > REQUEST_TTL
+    ) {
+        throw new Error('카카오 연결 요청이 없거나 만료되었습니다. 다시 시도해 주세요.');
+    }
+    return request as KakaoLinkRequest;
 }
