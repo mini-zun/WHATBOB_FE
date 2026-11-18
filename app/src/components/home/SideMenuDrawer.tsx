@@ -61,6 +61,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
   const nickname = user?.nickname?.trim() || "사용자";
   const profileimage = user?.profile_image?.trim();
   const canLinkKakao = !!user && user.kakao_id === null;
+  const isKakaoLinked = typeof user?.kakao_id === 'number';
 
   return (
     <>
@@ -84,7 +85,18 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
             contentFit="cover"
             style={styles.profileIconSec}
           />
-          <Text style={styles.userName} numberOfLines={1}>{nickname}</Text>
+          <View style={styles.userNameRow}>
+            <Text style={styles.userName} numberOfLines={1}>{nickname}</Text>
+            {isKakaoLinked && (
+              <Image
+                source={require("@/assets/images/kakao_login_kr_small.png")}
+                contentFit="contain"
+                style={styles.kakaoLogo}
+                accessible
+                accessibilityLabel="카카오 계정 연결됨"
+              ></Image>
+            )}
+          </View>
           <Text style={styles.profileDesc}>오늘도 맛있는 하루 되세요!</Text>
         </View>
         <Text style={styles.menuTitle}>나의 활동</Text>
@@ -104,10 +116,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
 
         {canLinkKakao && (
           <MenuItem
-          menuTitle="카카오 계정 연결"
-          menuIcon="link"
-          menuIconColor="darkYellow"
-          onPress={handleToKakaoLink}
+            menuTitle="카카오 계정 연결"
+            menuIcon="link"
+            menuIconColor="darkYellow"
+            onPress={handleToKakaoLink}
           />
         )}
         <View style={styles.menuEnd} />
@@ -127,6 +139,19 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           isVersion
         />
         <View style={styles.menuEnd} />
+        {isKakaoLinked && (
+          <View style={styles.accountActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="로그아웃"
+              accessibilityState={{ disabled: true }}
+              disabled
+              style={styles.logoutButton}
+            >
+              <Text style={styles.logoutText}>로그아웃</Text>
+            </Pressable>
+          </View>
+        )}
       </Animated.View>
       <PrivacyPolicyPopUp
         visible={privacyOpen}
@@ -207,11 +232,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     marginBottom: 13,
   },
-  userName: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 22,
-    marginBottom: 7,
-  },
   profileDesc: {
     fontFamily: Fonts.bodyDesc,
     fontSize: 19,
@@ -257,5 +277,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textBrown,
     alignItems: "center",
+  },
+
+  userNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 7,
+  },
+  kakaoLogo: {
+    width: 70,
+    height: 26,
+    flexShrink: 0,
+  },
+  userName: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 22,
+    flexShrink: 1,
+  },
+  accountActions: {
+    marginTop: "auto",
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  logoutButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    opacity: 0.5,
+  },
+  logoutText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 16,
+    color: Colors.textBrown,
   },
 });
