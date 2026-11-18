@@ -19,6 +19,7 @@ export const Colors = {
   buttonPink: "#FAE8DE",
   buttonGrey: "#E9ECED",
   backOrange: "#F9EFDD",
+  selectedRed: "#F9D5CDCC",
   red: "#FF0000",
   orange: "#FFA500",
   blue: "#0000FF",
