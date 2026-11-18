@@ -139,6 +139,19 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           isVersion
         />
         <View style={styles.menuEnd} />
+        {isKakaoLinked && (
+          <View style={styles.accountActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="로그아웃"
+              accessibilityState={{ disabled: true }}
+              disabled
+              style={styles.logoutButton}
+            >
+              <Text style={styles.logoutText}>로그아웃</Text>
+            </Pressable>
+          </View>
+        )}
       </Animated.View>
       <PrivacyPolicyPopUp
         visible={privacyOpen}
@@ -281,5 +294,22 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodySemiBold,
     fontSize: 22,
     flexShrink: 1,
+  },
+  accountActions: {
+    marginTop: "auto",
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  logoutButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    opacity: 0.5,
+  },
+  logoutText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 16,
+    color: Colors.textBrown,
   },
 });
