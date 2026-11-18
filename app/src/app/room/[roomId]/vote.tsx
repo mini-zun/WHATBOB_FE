@@ -1,15 +1,7 @@
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { router } from "expo-router";
+import { useState } from "react";
 
 import { Feather } from "@expo/vector-icons";
 
@@ -209,11 +201,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   votingItemBoxTitleSec: {
+    flex: 1,
+    marginRight: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 11,
   },
   menuAndVoteSec: {
+    flex: 1,
     gap: 12,
     marginBottom: 16,
   },
@@ -222,7 +217,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   votesBarBack: {
-    width: 200,
+    maxWidth: 200,
+    width: "100%",
     height: 10,
     borderRadius: 999,
     backgroundColor: Colors.backGrey,
