@@ -4,7 +4,83 @@ import type {
     TransitionPrepareRequest,
     TransitionPrepareResponse,
     TransitionCommitResponse,
+    TransitionStatusResponse,
 } from "@/types/auth_transition"
+
+export async function getTransitionStatus(
+    transitionId: string,
+): Promise<TransitionStatusResponse> {
+    if (!transitionId.trim()) {
+        throw new Error("계정 전환 ID가 없습니다.");
+    }
+
+    const result = await apiFetch<TransitionStatusResponse>(
+        `/api/auth/transitions/${encodeURIComponent(transitionId)}`,
+        {
+            auth: false,
+            credentials: "include",
+            headers: {
+                "X-Whatbob-Request": "1",
+            },
+        },
+    );
+
+    if (
+        !result ||
+        result.transition_id !== transitionId ||
+        !(
+            result.action === "KAKAO_LINK" ||
+            result.action === "LOGOUT"
+        ) ||
+        typeof result.status !== "string" ||
+        !result.status.trim() ||
+        typeof result.origin_uuid !== "string" ||
+        !(
+            result.result_uuid === null ||
+            typeof result.result_uuid === "string"
+        ) ||
+        typeof result.expires_at !== "string" ||
+        Number.isNaN(Date.parse(result.expires_at))
+    ) {
+        throw new Error("계정 전환 상태 응답이 올바르지 않습니다.");
+    }
+
+    return result;
+}
+
+export async function recoverTransition(
+    transitionId: string,
+): Promise<TransitionCommitResponse> {
+    if (!transitionId.trim()) {
+        throw new Error("계정 전환 ID가 없습니다.");
+    }
+
+    const result = await apiFetch<TransitionCommitResponse>(
+        `/api/auth/transitions/${encodeURIComponent(transitionId)}/recovery`,
+        {
+            method: "POST",
+            auth: false,
+            credentials: "include",
+            headers: {
+                "X-Whatbob-Request": "1",
+            },
+        },
+    );
+
+    if (
+        !isAuthResponse(result) ||
+        result.transition_id !== transitionId ||
+        result.status !== "COMMITTED" ||
+        !(
+            result.action === "KAKAO_LINK" ||
+            result.action === "LOGOUT"
+        )
+    ) {
+        throw new Error("계정 전환 복구 응답이 올바르지 않습니다.");
+    }
+
+    return result;
+}
 
 export async function prepareTransition(
     request: TransitionPrepareRequest,
