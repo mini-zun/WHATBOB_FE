@@ -16,7 +16,7 @@ import type { TransitionCommitResponse } from "@/types/auth_transition";
 let completion: {
     code: string;
     state: string;
-    promise: Promise<void>;   
+    promise: Promise<void>;
 } | null = null;
 
 async function commitOrRecover(
