@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import type { ComponentProps } from "react";
-import { BackHandler, Pressable, StyleSheet, Text, View, Platform } from "react-native";
+import {
+  BackHandler,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  Platform,
+} from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -42,6 +49,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
     setPendingPath("/food_history");
   };
 
+  const handleToProfileEdit = () => {
+    setPendingPath("/profile_edit");
+  };
+
   useEffect(() => {
     if (!visible) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -53,7 +64,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
 
   if (!visible) return null;
 
-  const user = Platform.OS === "web" && typeof window !== "undefined" ? readWebSession()?.user : null;
+  const user =
+    Platform.OS === "web" && typeof window !== "undefined"
+      ? readWebSession()?.user
+      : null;
   const nickname = user?.nickname?.trim() || "사용자";
   const profileimage = user?.profile_image?.trim();
 
@@ -73,13 +87,36 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         style={[styles.panel]}
       >
         <View style={styles.profileBack}>
-          <Image source={
-            profileimage ? { uri: profileimage } : require("@/assets/images/empty_user_icon.png")
-          }
-            contentFit="cover"
-            style={styles.profileIconSec}
-          />
-          <Text style={styles.userName} numberOfLines={1}>{nickname}</Text>
+          <View style={styles.profileEditLayout}>
+            <Image
+              source={
+                profileimage
+                  ? { uri: profileimage }
+                  : require("@/assets/images/empty_user_icon.png")
+              }
+              contentFit="cover"
+              style={styles.profileIconSec}
+            />
+            <Pressable>
+              <Image
+                source={require("@/assets/images/profile_edit_btn.png")}
+                contentFit="contain"
+                style={styles.profileEditButton}
+              />
+            </Pressable>
+          </View>
+          <View style={styles.userNameSec}>
+            <Text style={styles.userName} numberOfLines={1}>
+              {nickname}
+            </Text>
+            <Pressable>
+              <Image
+                source={require("@/assets/images/edit_pen.png")}
+                contentFit="contain"
+                style={styles.nameEditPen}
+              />
+            </Pressable>
+          </View>
           <Text style={styles.profileDesc}>오늘도 맛있는 하루 되세요!</Text>
         </View>
         <Text style={styles.menuTitle}>나의 활동</Text>
@@ -186,17 +223,35 @@ const styles = StyleSheet.create({
     paddingBottom: 21,
     marginBottom: 71,
   },
+  profileEditLayout: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginBottom: 13,
+  },
   profileIconSec: {
     width: 85,
     height: 85,
     borderRadius: 100,
     backgroundColor: Colors.white,
-    marginBottom: 13,
+  },
+  profileEditButton: {
+    width: 31,
+    height: 31,
+    transform: [{ translateX: -20 }],
+  },
+  userNameSec: {
+    flexDirection: "row",
+    gap: 4,
+    alignItems: "center",
+    marginBottom: 7,
   },
   userName: {
     fontFamily: Fonts.bodySemiBold,
     fontSize: 22,
-    marginBottom: 7,
+  },
+  nameEditPen: {
+    width: 15,
+    height: 15,
   },
   profileDesc: {
     fontFamily: Fonts.bodyDesc,
