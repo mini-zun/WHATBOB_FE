@@ -38,6 +38,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
     setPendingPath("/non_preference_food");
   };
 
+  const handleToKakaoLink = () => {
+    setPendingPath("/login");
+  };
+
   const handleToFoodHistory = () => {
     setPendingPath("/food_history");
   };
@@ -56,6 +60,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
   const user = Platform.OS === "web" && typeof window !== "undefined" ? readWebSession()?.user : null;
   const nickname = user?.nickname?.trim() || "사용자";
   const profileimage = user?.profile_image?.trim();
+  const canLinkKakao = !!user && user.kakao_id === null;
 
   return (
     <>
@@ -96,6 +101,15 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           menuIconColor="orange"
           onPress={handleToFoodHistory}
         />
+
+        {canLinkKakao && (
+          <MenuItem
+          menuTitle="카카오 계정 연결"
+          menuIcon="link"
+          menuIconColor="darkYellow"
+          onPress={handleToKakaoLink}
+          />
+        )}
         <View style={styles.menuEnd} />
 
         <Text style={styles.menuTitle}>약관 및 정보</Text>
