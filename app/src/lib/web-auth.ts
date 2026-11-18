@@ -13,6 +13,7 @@ export type KakaoLinkRequest = {
     state: string;
     operation_key: string;
     createdAt: number;
+    transition_id?: string;
 };
 
 const REQUEST_KEY = 'kakao_login_request';
@@ -179,6 +180,11 @@ export function readKakaoLinkRequest(state: string): KakaoLinkRequest {
         typeof request.operation_key !== 'string' ||
         !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
             .test(request.operation_key) ||
+        request.transition_id !== undefined &&
+        (
+            typeof request.transition_id !== 'string' ||
+            !request.transition_id.trim()
+        ) ||
         typeof request.createdAt !== 'number' ||
         !Number.isFinite(request.createdAt) ||
         Date.now() - request.createdAt < 0 ||
@@ -187,4 +193,29 @@ export function readKakaoLinkRequest(state: string): KakaoLinkRequest {
         throw new Error('카카오 연결 요청이 없거나 만료되었습니다. 다시 시도해 주세요.');
     }
     return request as KakaoLinkRequest;
+}
+
+export function saveKakaoTransitionId(
+    state: string,
+    transitionId: string,
+): void {
+    if(!transitionId.trim()) {
+        throw new Error('계정 전환 ID가 없습니다.');
+    }
+    const request = readKakaoLinkRequest(state);
+
+    if(
+        request.transition_id &&
+        request.transition_id !== transitionId
+    ) {
+        throw new Error('이미 저장된 계정 전환 ID와 일치하지 않습니다.');
+    }
+
+    storage().setItem(
+        REQUEST_KEY,
+        JSON.stringify({
+            ...request,
+            transition_id: transitionId,
+        }),
+    );
 }
