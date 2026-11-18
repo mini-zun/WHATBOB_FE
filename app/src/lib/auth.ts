@@ -69,35 +69,6 @@ export type PrepareAuthentication = {
     notice?: "PREVIOUS_SESSION_UNAVAILABLE" | null;
 }
 
-export async function loginWithKakaoCode(
-    code: string
-): Promise<AuthResponse> {
-    const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-    if (!apiBaseUrl) throw new Error('API 주소가 설정되지 않았습니다.');
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-    try {
-        const response = await fetch(
-            `${apiBaseUrl.replace(/\/$/, '')}/api/auth/kakao/login`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...getApiHeaders(apiBaseUrl) },
-                body: JSON.stringify({ code }),
-                signal: controller.signal,
-            }
-        );
-        if (!response.ok) throw new Error('카카오 로그인에 실패했습니다. 다시 로그인해 주세요.');
-        const data: unknown = await response.json();
-        if (!isAuthResponse(data)) throw new Error('로그인 응답이 올바르지 않습니다.');
-        return data;
-    } catch (error) {
-        if (controller.signal.aborted) throw new Error('요청 시간이 초과되었습니다. 다시 로그인해 주세요.');
-        throw error;
-    } finally {
-        clearTimeout(timeout);
-    }
-}
 
 export function isAuthResponse(data: unknown): data is AuthResponse {
     if (!data || typeof data !== 'object') return false;

@@ -4,7 +4,6 @@ import {
     createAnonymousUser,
     issueToken,
     isAuthResponse,
-    loginWithKakaoCode,
     type AuthResponse
 } from './auth';
 
@@ -19,7 +18,6 @@ export type KakaoLinkRequest = {
 const REQUEST_KEY = 'kakao_login_request';
 const SESSION_KEY = 'whatbob_session';
 const REQUEST_TTL = 10 * 60 * 1000;
-let completion: { code: string; state: string; promise: Promise<void> } | null = null;
 let initialization: Promise<AuthResponse> | null = null;
 let tokenRefresh: Promise<AuthResponse> | null = null;
 
@@ -101,7 +99,6 @@ export function prepareKakaoLogin(loginUrl: string): string {
     };
 
     storage().setItem(REQUEST_KEY, JSON.stringify(request));
-    completion = null;
     return url.toString();
 }
 
@@ -124,30 +121,8 @@ export function readWebSession(): AuthResponse | null {
 export function clearWebSession() {
     storage().removeItem(SESSION_KEY);
     clearLoginRequest();
-    completion = null;
     initialization = null;
 
-}
-
-export function completeKakaoLogin(code: string, state: string): Promise<void> {
-
-    if (completion?.code === code && completion.state === state) return completion.promise;
-    const promise = (async () => {
-        const raw = storage().getItem(REQUEST_KEY);
-        const request = raw ? JSON.parse(raw) : null;
-        if (!request || !state || request.state !== state ||
-            typeof request.createdAt !== 'number' ||
-            Date.now() - request.createdAt < 0 || Date.now() - request.createdAt > REQUEST_TTL) {
-            throw new Error('로그인 요청이 없거나 만료되었습니다. 다시 로그인해 주세요.');
-        }
-        clearLoginRequest();
-        if (!code) throw new Error('인가 코드가 전달되지 않았습니다.');
-        const session = await loginWithKakaoCode(code);
-        saveWebSession(session);
-
-    })();
-    completion = { code, state, promise };
-    return promise;
 }
 
 export function saveWebSession(session: AuthResponse): void {
