@@ -1,17 +1,19 @@
 import { router } from "expo-router";
 import { Platform } from "react-native";
 
-import { clearWebSession, readWebSession } from "./web-auth";
+import { clearWebSession, readWebSession, refreshAuthentication } from "./web-auth";
 
 const REQUEST_TIMEOUT = 10000;
 
 export class ApiError extends Error {
   readonly status: number;
+  readonly code?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -20,6 +22,8 @@ type ApiOptions = {
   body?: unknown;
   auth?: boolean;
   signal?: AbortSignal;
+  headers?: Record<string, string>;
+  credentials?: "omit" | "same-origin" | "include";
 };
 
 export function getApiBaseUrl(): string {
@@ -50,6 +54,20 @@ export function getCurrentUserId(): number | null {
   return readWebSession()?.user.id ?? null;
 }
 
+function getErrorCode(data: unknown): string | undefined {
+  if (!data || typeof data !== "object" || !("detail" in data)) {
+    return undefined;
+  }
+
+  const detail = data.detail;
+
+  if (!detail || typeof detail !== "object" || !("code" in detail)) {
+    return undefined;
+  }
+
+  return typeof detail.code === "string" ? detail.code : undefined;
+}
+
 function getErrorMessage(data: unknown, status: number): string {
   if (
     data &&
@@ -63,26 +81,41 @@ function getErrorMessage(data: unknown, status: number): string {
   if (data && typeof data === "object" && "detail" in data) {
     const { detail } = data;
     if (typeof detail === "string") return detail;
+
+    if (
+      detail && typeof detail === "object" &&
+      "message" in detail && typeof detail.message === "string" &&
+      detail.message.trim()
+    ) {
+      return detail.message.trim();
+    }
     if (Array.isArray(detail) && typeof detail[0]?.msg === "string")
       return detail[0].msg;
   }
   return `요청에 실패했습니다. (HTTP ${status})`;
 }
 
-export async function apiFetch<T>(
+async function requestOnce<T>(
   path: string,
   options: ApiOptions = {},
 ): Promise<T> {
-  const { method = "GET", body, auth = true, signal } = options;
+  const { method = "GET", body, auth = true, signal, headers: extraHeaders, credentials, } = options;
   const apiBaseUrl = getApiBaseUrl();
 
-  const headers: Record<string, string> = getApiHeaders(apiBaseUrl);
+  const headers: Record<string, string> = {
+    ...getApiHeaders(apiBaseUrl),
+    ...extraHeaders,
+  };
+  
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (auth) {
     const token = getAccessToken();
     if (!token) {
-      handleUnauthorized();
-      throw new ApiError("로그인이 필요합니다.", 401);
+      throw new ApiError(
+        "인증 정보가 없습니다. 다시 시작해 주세요.",
+        401,
+        "ACCESS_TOKEN_MISSING",
+      );
     }
     headers.Authorization = `Bearer ${token}`;
   }
@@ -103,18 +136,16 @@ export async function apiFetch<T>(
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal,
+      credentials,
     });
     const data: unknown =
       response.status === 204 ? null : await response.json().catch(() => null);
 
-    if (response.status === 401 && auth) {
-      handleUnauthorized();
-      throw new ApiError("로그인이 만료되었습니다. 다시 로그인해 주세요.", 401);
-    }
     if (!response.ok)
       throw new ApiError(
         getErrorMessage(data, response.status),
         response.status,
+        getErrorCode(data),
       );
     return data as T;
   } catch (error) {
@@ -129,5 +160,39 @@ export async function apiFetch<T>(
   } finally {
     clearTimeout(timeout);
     signal?.removeEventListener("abort", cancel);
+  }
+
+}
+
+export async function apiFetch<T>(
+  path: string,
+  options: ApiOptions = {},
+): Promise<T> {
+  const originalToken = getAccessToken();
+
+  try {
+    return await requestOnce<T>(path, options);
+  } catch (error) {
+    if (
+      options.auth === false ||
+      !(error instanceof ApiError) ||
+      error.status !== 401 ||
+      error.code !== "ACCESS_TOKEN_EXPIRED"
+    ) {
+      throw error;
+    }
+
+    options.signal?.throwIfAborted();
+
+    const currentToken = getAccessToken();
+    if (!currentToken) throw error;
+
+    if (currentToken === originalToken) {
+      await refreshAuthentication();
+    }
+
+    options.signal?.throwIfAborted();
+
+    return requestOnce<T>(path, options);
   }
 }

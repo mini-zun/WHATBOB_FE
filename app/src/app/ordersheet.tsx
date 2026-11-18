@@ -18,6 +18,8 @@ import type {
 
 
 import { Colors, Fonts } from "@/constants/theme";
+import { getAuthRestartMessage } from "@/lib/auth_recovery";
+
 
 export default function OrderSheetScreen() {
     const { height } = useWindowDimensions();
@@ -38,6 +40,7 @@ export default function OrderSheetScreen() {
     const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
     const [feedbackError, setFeedbackError] = useState<string | null>(null);
     const [isAccepted, setIsAccepted] = useState(false);
+    const [authRestartMessage, setAuthRestartMessage] = useState<string | null>(null);
 
     const feedbackInProgress = useRef(false);
     const completedFeedback = useRef(new Set<string>());
@@ -72,6 +75,11 @@ export default function OrderSheetScreen() {
                 }
             } catch (error) {
                 if (!cancelled) {
+                    const restartMessage = getAuthRestartMessage(error);
+                    if (restartMessage) {
+                        setAuthRestartMessage(restartMessage);
+                    }
+
                     setError(
                         error instanceof Error ? error.message : "질문을 불러오지 못했습니다.",
                     );
@@ -140,6 +148,11 @@ export default function OrderSheetScreen() {
             completedFeedback.current.clear();
             setRecommendation(data);
         } catch (error) {
+            const restartMessage = getAuthRestartMessage(error);
+            if (restartMessage) {
+                setAuthRestartMessage(restartMessage);
+            }
+
             setSubmitError(
                 error instanceof Error
                     ? error.message
@@ -232,6 +245,11 @@ export default function OrderSheetScreen() {
 
             setRecommendationIndex(recommendationIndex + 1);
         } catch (error) {
+            const restartMessage = getAuthRestartMessage(error);
+            if (restartMessage) {
+                setAuthRestartMessage(restartMessage);
+            }
+
             setFeedbackError(
                 error instanceof Error
                     ? error.message
@@ -242,6 +260,35 @@ export default function OrderSheetScreen() {
             setIsFeedbackSubmitting(false);
         }
     };
+
+    if (authRestartMessage) {
+        return (
+            <SafeAreaView style={styles.safeArea}>
+                <View style={[styles.page, styles.statusPage]}>
+                    <Text
+                        accessibilityRole="alert"
+                        style={styles.skipText}
+                    >
+                        {authRestartMessage}
+                    </Text>
+
+                    <Pressable
+                        accessibilityRole="button"
+                        style={styles.answerButton}
+                        onPress={() => {
+                            if (typeof window !== "undefined") {
+                                window.location.replace("/");
+                            }
+                        }}
+                    >
+                        <Text style={styles.answerButtonText}>
+                            인증 다시 시작
+                        </Text>
+                    </Pressable>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     if (isLoading || error || !question) {
         return (

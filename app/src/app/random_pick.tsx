@@ -18,6 +18,8 @@ import { Feather } from "@expo/vector-icons";
 import { scheduleOnRN } from "react-native-worklets";
 
 import { getRandomMenu, type RandomMenu } from "@/lib/random_menu";
+import { getAuthRestartMessage } from "@/lib/auth_recovery";
+
 
 const handleBack = () => {
   if (router.canGoBack()) router.back();
@@ -33,6 +35,8 @@ export default function PickWithFriendScreen() {
   const [menu, setMenu] = useState<RandomMenu | null>(null);
   const [menuError, setMenuError] = useState<string | null>(null);
   const [seenFoodList, setSeenFoodList] = useState<string[]>([]);
+  const [authRestartMessage, setAuthRestartMessage] = useState<string | null>(null);
+
 
   const rotation = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -50,11 +54,17 @@ export default function PickWithFriendScreen() {
       setMenu(picked);
       setSeenFoodList((prev) => [...prev, picked.name]);
     } catch (e) {
+      const restartMessage = getAuthRestartMessage(e);
+
+      if (restartMessage) {
+        setAuthRestartMessage(restartMessage);
+      }
+
       setMenuError(
-        e instanceof Error ? e.message : "메뉴를 불러오지 못했어요.",
+        e instanceof Error ? e.message : "메뉴를 불러오지 못했어요."
       );
     }
-  };
+  }
 
   const startAnimation = () => {
     loadMenu();
@@ -93,6 +103,43 @@ export default function PickWithFriendScreen() {
       transform: [{ translateY: translateY.value }],
     };
   });
+
+  if (authRestartMessage) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            gap: 24,
+          }}
+        >
+          <Text
+            accessibilityRole="alert"
+            style={{ textAlign: "center" }}
+          >
+            {authRestartMessage}
+          </Text>
+
+          <Pressable
+            accessibilityRole="button"
+            style={styles.pickButton}
+            onPress={() => {
+              if (typeof window !== "undefined") {
+                window.location.replace("/");
+              }
+            }}
+          >
+            <Text style={styles.pickButtonText}>
+              인증 다시 시작
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
