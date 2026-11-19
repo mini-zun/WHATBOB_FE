@@ -54,6 +54,11 @@ export function getCurrentUserId(): number | null {
   return readWebSession()?.user.id ?? null;
 }
 
+function getCurrentUserUuid(): string | null {
+  if (Platform.OS !== "web") return null;
+  return readWebSession()?.user.uuid ?? null;
+}
+
 function getErrorCode(data: unknown): string | undefined {
   if (!data || typeof data !== "object" || !("detail" in data)) {
     return undefined;
@@ -169,9 +174,26 @@ export async function apiFetch<T>(
   options: ApiOptions = {},
 ): Promise<T> {
   const originalToken = getAccessToken();
+  const originalUuid = getCurrentUserUuid();
+
+  const assertSameUser = () => {
+    if (
+      options.auth !== false &&
+      getCurrentUserUuid() !== originalUuid
+    ) {
+      throw new ApiError(
+        "인증 정보가 변경되었습니다. 새로고침해 주세요.",
+        409,
+        "AUTH_CONTEXT_CHANGED",
+      );
+    }
+  };
 
   try {
-    return await requestOnce<T>(path, options);
+    const result = await requestOnce<T>(path, options);
+
+    assertSameUser();
+    return result;
   } catch (error) {
     if (
       options.auth === false ||
@@ -183,6 +205,7 @@ export async function apiFetch<T>(
     }
 
     options.signal?.throwIfAborted();
+    assertSameUser();
 
     const currentToken = getAccessToken();
     if (!currentToken) throw error;
@@ -192,7 +215,11 @@ export async function apiFetch<T>(
     }
 
     options.signal?.throwIfAborted();
+    assertSameUser();
 
-    return requestOnce<T>(path, options);
+    const result = await requestOnce<T>(path, options);
+
+    assertSameUser();
+    return result;
   }
 }
