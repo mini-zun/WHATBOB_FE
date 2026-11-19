@@ -36,6 +36,9 @@ export function LogoutConfirmPopUp({
             message={message}
             leftButtonText={ busy ? "처리중..." : errorMessage ? "다시 시도" : "로그아웃"}
             rightButtonText={canCancel ? "취소" : "상태 확인 필요"}
+            leftDisabled={busy}
+            rightDisabled={busy || !canCancel}
+            closeDisabled={busy || !canCancel}
             onLeftButtonClick={handleConfirm}
             onRightButtonClick={handleCancel}
             onClose={handleCancel}

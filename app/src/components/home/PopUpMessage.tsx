@@ -10,6 +10,9 @@ type Props = {
   message: string;
   leftButtonText?: string;
   rightButtonText: string;
+  leftDisabled?: boolean;
+  rightDisabled?: boolean;
+  closeDisabled?: boolean;
   onLeftButtonClick?: () => void;
   onRightButtonClick: () => void;
   onClose?: () => void;
@@ -21,6 +24,9 @@ export function PopUpBox({
   message,
   leftButtonText = "",
   rightButtonText,
+  leftDisabled = false,
+  rightDisabled = false,
+  closeDisabled = false,
   onLeftButtonClick = () => null,
   onRightButtonClick,
   onClose = onRightButtonClick,
@@ -28,11 +34,11 @@ export function PopUpBox({
   useEffect(() => {
     if (!visible) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      onClose();
+      if (!closeDisabled) onClose();
       return true;
     });
     return () => sub.remove();
-  }, [visible, onClose]);
+  }, [visible, onClose, closeDisabled]);
 
   if (!visible) return null;
 
@@ -43,7 +49,12 @@ export function PopUpBox({
         exiting={FadeOut.duration(80)}
         style={styles.backdrop}
       >
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          disabled={closeDisabled}
+          accessible={false}
+        />
       </Animated.View>
 
       <Animated.View
@@ -57,13 +68,31 @@ export function PopUpBox({
         <View style={styles.popUpBottomLayout}>
           {!isOnlyOk && (
             <>
-              <Pressable style={styles.popUpbutton} onPress={onLeftButtonClick}>
+              <Pressable style={[
+                styles.popUpbutton,
+                leftDisabled &&
+                styles.disableButton
+              ]}
+                onPress={onLeftButtonClick}
+                disabled={leftDisabled}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: leftDisabled }}
+              >
                 <Text style={styles.textStyle}>{leftButtonText}</Text>
               </Pressable>
               <View style={styles.buttonDivider} />
             </>
           )}
-          <Pressable style={styles.popUpbutton} onPress={onRightButtonClick}>
+          <Pressable style={[
+            styles.popUpbutton,
+            rightDisabled &&
+            styles.disableButton
+          ]}
+            onPress={onRightButtonClick}
+            disabled={rightDisabled}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: rightDisabled }}
+          >
             <Text style={styles.textStyle}>{rightButtonText}</Text>
           </Pressable>
         </View>
@@ -119,5 +148,8 @@ const styles = StyleSheet.create({
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
+  },
+  disableButton: {
+    opacity: 0.45
   },
 });
