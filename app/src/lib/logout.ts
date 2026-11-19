@@ -12,7 +12,13 @@ import {
     clearLogoutRequest,
 } from "./logout_request";
 
-import { readWebSession, saveWebSession } from "./web-auth";
+import {
+    readWebSession,
+    saveWebSession,
+    waitForTokenRefresh
+} from "./web-auth";
+
+import { beginLogoutOperation } from "./auth_operation";
 
 import type { TransitionCommitResponse } from "@/types/auth_transition";
 
@@ -122,11 +128,30 @@ async function runLogout(): Promise<void> {
 }
 
 let logoutInProgress: Promise<void> | null = null;
+let finishLogoutOperation: (() => void) | null = null;
+
+function releaseLogoutIfResolved(): void {
+    try{
+        if(readLogoutRequest()) return;
+    } catch {
+        return;
+    }
+    finishLogoutOperation?.();
+    finishLogoutOperation = null;
+}
 
 export function completeLogout(): Promise<void> {
     if (logoutInProgress) return logoutInProgress;
 
-    logoutInProgress = runLogout().finally(() => {
+    logoutInProgress = (async () => {
+        if(!finishLogoutOperation) {
+            finishLogoutOperation = beginLogoutOperation();
+        }
+
+        await waitForTokenRefresh();
+        await runLogout();
+    })().finally(() => {
+        releaseLogoutIfResolved();
         logoutInProgress = null;
     });
 
