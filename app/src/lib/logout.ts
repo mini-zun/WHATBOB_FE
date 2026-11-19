@@ -20,7 +20,7 @@ async function getLogoutStatus(
     transitionId: string,
     originUuid: string,
 ) {
-    const status = await getTransitionStatus(transitionId);
+    const status = await getTransitionStatus(transitionId, true);
 
     if (
         status.action !== "LOGOUT" ||
@@ -36,12 +36,12 @@ async function commitOrRecover(
     originUuid: string,
 ): Promise<TransitionCommitResponse> {
     try {
-        return await commitTransition(transitionId);
+        return await commitTransition(transitionId, true);
     } catch (error) {
         const status = await getLogoutStatus(transitionId, originUuid);
 
         if (status.status === "COMMITTED") {
-            return recoverTransition(transitionId);
+            return recoverTransition(transitionId, true);
         }
 
         throw error;
@@ -69,7 +69,7 @@ async function runLogout(): Promise<void> {
         );
 
         if (status.status === "COMMITTED") {
-            result = await recoverTransition(request.transition_id);
+            result = await recoverTransition(request.transition_id, true);
         } else if (status.status === "PREPARED") {
             result = await commitOrRecover(
                 request.transition_id,

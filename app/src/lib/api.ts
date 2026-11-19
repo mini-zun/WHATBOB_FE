@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { Platform } from "react-native";
 
+import { isLogoutInProgress } from "./auth_operation";
 import { clearWebSession, readWebSession, refreshAuthentication } from "./web-auth";
 
 const REQUEST_TIMEOUT = 10000;
@@ -24,7 +25,18 @@ type ApiOptions = {
   signal?: AbortSignal;
   headers?: Record<string, string>;
   credentials?: "omit" | "same-origin" | "include";
+  allowDuringLogout?: boolean;
 };
+
+function assertRequestAllowed(options: ApiOptions): void {
+  if (isLogoutInProgress() && !options.allowDuringLogout) {
+    throw new ApiError(
+      "로그아웃을 처리하고 있습니다. 잠시 기다려 주세요.",
+      409,
+      "AUTH_TRANSITION_IN_PROGRESS",
+    );
+  }
+}
 
 export function getApiBaseUrl(): string {
   const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -104,6 +116,7 @@ async function requestOnce<T>(
   path: string,
   options: ApiOptions = {},
 ): Promise<T> {
+  assertRequestAllowed(options);
   const { method = "GET", body, auth = true, signal, headers: extraHeaders, credentials, } = options;
   const apiBaseUrl = getApiBaseUrl();
 
@@ -177,6 +190,7 @@ export async function apiFetch<T>(
   const originalUuid = getCurrentUserUuid();
 
   const assertSameUser = () => {
+    assertRequestAllowed(options);
     if (
       options.auth !== false &&
       getCurrentUserUuid() !== originalUuid
