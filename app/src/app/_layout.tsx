@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Button, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { initializeAuthentication } from "@/lib/web-auth";
+import { readLogoutRequest } from '@/lib/logout_request';
+import { completeLogout } from '@/lib/logout';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,18 +37,26 @@ export default function RootLayout() {
     setAuthReady(false);
     setAuthError(null);
 
-    initializeAuthentication()
-      .then(() => {
-        if (active) setAuthReady(true);
-      })
+    const startAuthentication = async () => {
+      const pendingLogout = readLogoutRequest();
+
+      if (pendingLogout) {
+        await completeLogout();
+        return;
+      }
+
+      await initializeAuthentication();
+    };
+
+    startAuthentication().then(() => {
+      if (active) setAuthReady(true);
+    })
       .catch((error: unknown) => {
-        if (active) {
-          setAuthError(
-            error instanceof Error
-              ? error.message
-              : "인증에 실패했습니다. 다시 시도해 주세요.",
-          );
-        }
+        if (!active) return;
+
+        setAuthError(
+          error instanceof Error ? error.message : "인증 상태를 확인하지 못했습니다. 다시 시도해 주세ㅛㅇ.",
+        );
       });
 
     return () => {
@@ -63,33 +73,33 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }} />
       ) : (
         <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 24,
-          gap: 16,
-        }}
-      >
-        {authError ? (
-          <>
-            <Text accessibilityRole="alert">{authError}</Text>
-            <Button
-              title="다시 시도"
-              onPress={() => {
-                setAuthError(null);
-                setRetryCount((count) => count + 1);
-              }}
-            />
-          </>
-        ) : (
-          <>
-            <ActivityIndicator />
-            <Text>시작하는 중입니다.</Text>
-          </>
-        )}
-      </View>
-    )}
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            gap: 16,
+          }}
+        >
+          {authError ? (
+            <>
+              <Text accessibilityRole="alert">{authError}</Text>
+              <Button
+                title="다시 시도"
+                onPress={() => {
+                  setAuthError(null);
+                  setRetryCount((count) => count + 1);
+                }}
+              />
+            </>
+          ) : (
+            <>
+              <ActivityIndicator />
+              <Text>시작하는 중입니다.</Text>
+            </>
+          )}
+        </View>
+      )}
     </GestureHandlerRootView>
   );
 }
