@@ -18,9 +18,11 @@ import {
     waitForTokenRefresh
 } from "./web-auth";
 
+import { ApiError } from "./api";
+
 import { beginLogoutOperation } from "./auth_operation";
 
-import type { TransitionCommitResponse } from "@/types/auth_transition";
+import type { TransitionCommitResponse, TransitionPrepareResponse } from "@/types/auth_transition";
 
 async function getLogoutStatus(
     transitionId: string,
@@ -102,10 +104,24 @@ async function runLogout(): Promise<void> {
             throw new Error("로그아웃을 시작한 사용자 정보가 변경되었습니다.");
         }
 
-        const prepared = await prepareTransition({
-            action: "LOGOUT",
-            operation_key: request.operation_key,
-        });
+        let prepared: TransitionPrepareResponse;
+
+        try{
+            prepared = await prepareTransition({
+                action: "LOGOUT",
+                operation_key: request.operation_key,
+            });
+        } catch (error) {
+            if(
+                error instanceof ApiError &&
+                error.status === 409 &&
+                error.code === "ROOM_PARTICIPATION_ACTIVE"
+            ) {
+                clearLogoutRequest();
+            }
+
+            throw error;
+        }
 
         saveLogoutTransitionId(prepared.transition_id);
 
