@@ -225,7 +225,7 @@ export async function apiFetch<T>(
     if (!currentToken) throw error;
 
     if (currentToken === originalToken) {
-      await refreshAuthentication();
+      await refreshAuthentication(options.allowDuringLogout);
     }
 
     options.signal?.throwIfAborted();

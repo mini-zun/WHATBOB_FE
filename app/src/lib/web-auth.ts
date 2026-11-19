@@ -7,6 +7,7 @@ import {
     type AuthResponse
 } from './auth';
 
+import { isLogoutInProgress } from './auth_operation';
 
 export type KakaoLinkRequest = {
     state: string;
@@ -22,7 +23,17 @@ let initialization: Promise<AuthResponse> | null = null;
 let tokenRefresh: Promise<AuthResponse> | null = null;
 let tokenRefreshUuid: string | null = null;
 
-export function refreshAuthentication(): Promise<AuthResponse> {
+export function refreshAuthentication(
+    allowDuringLogout = false,
+): Promise<AuthResponse> {
+    if (isLogoutInProgress() && !allowDuringLogout) {
+        return Promise.reject(
+            new AuthApiError("로그아웃을 처리하고 있습니다. 잠시만 기다려 주세요.",
+                409,
+                "AUTH_TRANSITION_IN_PROGRESS",
+            ),
+        );
+    }
     const originUuid = readWebSession()?.user.uuid;
 
     if (!originUuid) {
@@ -249,4 +260,8 @@ export function saveKakaoTransitionId(
             transition_id: transitionId,
         }),
     );
+}
+
+export async function waitForTokenRefresh(): Promise<void> {
+    await tokenRefresh;
 }
