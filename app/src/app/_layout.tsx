@@ -6,7 +6,7 @@ import { ActivityIndicator, Button, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { initializeAuthentication } from "@/lib/web-auth";
 import { readLogoutRequest } from '@/lib/logout_request';
-import { completeLogout } from '@/lib/logout';
+import { completeLogout, LogoutRestartRequiredError } from '@/lib/logout';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,7 +41,14 @@ export default function RootLayout() {
       const pendingLogout = readLogoutRequest();
 
       if (pendingLogout) {
-        await completeLogout();
+        try {
+          await completeLogout();
+        } catch(error) {
+          if(!(error instanceof LogoutRestartRequiredError)) {
+            throw error;
+          }
+          await initializeAuthentication();
+        }
         return;
       }
 

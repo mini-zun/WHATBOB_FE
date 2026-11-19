@@ -15,7 +15,8 @@ import {
 import {
     readWebSession,
     saveWebSession,
-    waitForTokenRefresh
+    waitForTokenRefresh,
+    clearWebSession,
 } from "./web-auth";
 
 import { ApiError } from "./api";
@@ -106,13 +107,13 @@ async function runLogout(): Promise<void> {
 
         let prepared: TransitionPrepareResponse;
 
-        try{
+        try {
             prepared = await prepareTransition({
                 action: "LOGOUT",
                 operation_key: request.operation_key,
             });
         } catch (error) {
-            if(
+            if (
                 error instanceof ApiError &&
                 error.status === 409 &&
                 error.code === "ROOM_PARTICIPATION_ACTIVE"
@@ -147,8 +148,8 @@ let logoutInProgress: Promise<void> | null = null;
 let finishLogoutOperation: (() => void) | null = null;
 
 function releaseLogoutIfResolved(): void {
-    try{
-        if(readLogoutRequest()) return;
+    try {
+        if (readLogoutRequest()) return;
     } catch {
         return;
     }
@@ -160,16 +161,43 @@ export function completeLogout(): Promise<void> {
     if (logoutInProgress) return logoutInProgress;
 
     logoutInProgress = (async () => {
-        if(!finishLogoutOperation) {
+        if (!finishLogoutOperation) {
             finishLogoutOperation = beginLogoutOperation();
         }
 
-        await waitForTokenRefresh();
-        await runLogout();
+        try {
+            await waitForTokenRefresh();
+            await runLogout();
+        } catch (error) {
+            const restartRequired =
+                error instanceof ApiError &&
+                (
+                    error.status === 404 &&
+                    error.code === "TRANSITION_NOT_FOUND" ||
+                    error.status === 401 && (
+                        error.code === "TRANSITION_RECOVERY_EXPIRED" ||
+                        error.code === "TRANSITION_SECRET_REQUIRED" ||
+                        error.code === "SESSION_UNAVAILABLE"
+                    )
+                );
+            if (restartRequired) {
+                clearWebSession();
+                clearLogoutRequest();
+                throw new LogoutRestartRequiredError();
+            }
+            throw error;
+        }
     })().finally(() => {
         releaseLogoutIfResolved();
         logoutInProgress = null;
     });
 
     return logoutInProgress;
+}
+
+export class LogoutRestartRequiredError extends Error {
+    constructor() {
+        super("로그아웃 결과를 복구할 수 없어 인증을 다시 시작합니다.");
+        this.name = "LogoutRestartRequiredError";
+    }
 }

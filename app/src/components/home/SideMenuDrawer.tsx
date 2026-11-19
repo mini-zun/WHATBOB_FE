@@ -16,7 +16,7 @@ import { Colors, Fonts } from "@/constants/theme";
 import { PrivacyPolicyPopUp } from "./PrivacyPolicyPop";
 import { readWebSession } from "@/lib/web-auth";
 import { LogoutConfirmPopUp } from "./LogoutConfirmPop";
-import { completeLogout } from "@/lib/logout";
+import { completeLogout, LogoutRestartRequiredError } from "@/lib/logout";
 import { isLogoutInProgress } from "@/lib/auth_operation";
 import { ApiError } from "@/lib/api";
 
@@ -85,6 +85,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
       await completeLogout();
       window.location.replace("/home");
     } catch (error) {
+      if(error instanceof LogoutRestartRequiredError) {
+        window.location.replace("/home");
+        return;
+      }
       const needsRecovery = isLogoutInProgress();
 
       setLogoutCanCancel(!needsRecovery);
