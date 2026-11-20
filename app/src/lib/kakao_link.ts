@@ -10,8 +10,9 @@ import {
     saveWebSession,
     clearLoginRequest,
 } from "./web-auth";
-import type { TransitionCommitResponse } from "@/types/auth_transition";
 
+import { publishAuthContextChange } from "./auth_context";
+import type { TransitionCommitResponse } from "@/types/auth_transition";
 
 let completion: {
     code: string;
@@ -80,6 +81,7 @@ async function runKakaoLink(code: string, state: string): Promise<void> {
     }
 
     saveWebSession(result);
+    publishAuthContextChange(result.user.uuid);
     clearLoginRequest();
 
 }

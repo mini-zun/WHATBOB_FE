@@ -8,6 +8,7 @@ import {
 } from './auth';
 
 import { isLogoutInProgress } from './auth_operation';
+import { hasAuthContextChanged } from './auth_context';
 
 export type KakaoLinkRequest = {
     state: string;
@@ -26,6 +27,7 @@ let tokenRefreshUuid: string | null = null;
 export function refreshAuthentication(
     allowDuringLogout = false,
 ): Promise<AuthResponse> {
+    assertAuthContextCurrent();
     if (isLogoutInProgress() && !allowDuringLogout) {
         return Promise.reject(
             new AuthApiError("로그아웃을 처리하고 있습니다. 잠시만 기다려 주세요.",
@@ -133,7 +135,9 @@ export function initializeAuthentication(): Promise<AuthResponse> {
     if (initialization) return initialization;
 
     initialization = (async () => {
+        assertAuthContextCurrent();
         const preparation = await prepareAuthentication();
+        assertAuthContextCurrent();
 
         const session = preparation.next_action === 'CREATE_USER'
             ? await createAnonymousUser()
@@ -193,6 +197,7 @@ export function clearWebSession() {
 }
 
 export function saveWebSession(session: AuthResponse): void {
+    assertAuthContextCurrent();
     if (!isAuthResponse(session)) {
         throw new Error('인증 응답이 올바르지 않습니다.');
     }
@@ -264,4 +269,10 @@ export function saveKakaoTransitionId(
 
 export async function waitForTokenRefresh(): Promise<void> {
     await tokenRefresh;
+}
+
+function assertAuthContextCurrent(): void {
+    if(hasAuthContextChanged()) {
+        throw new AuthApiError("다른 탭에서 계정이 변경되었습니다. 다시 시작해 주세요.", 409, "AUTH_CONTEXT_CHANGED",);
+    }
 }

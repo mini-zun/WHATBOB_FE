@@ -20,9 +20,8 @@ import {
 } from "./web-auth";
 
 import { ApiError } from "./api";
-
 import { beginLogoutOperation } from "./auth_operation";
-
+import { publishAuthContextChange } from "./auth_context";
 import type { TransitionCommitResponse, TransitionPrepareResponse } from "@/types/auth_transition";
 
 async function getLogoutStatus(
@@ -141,6 +140,7 @@ async function runLogout(): Promise<void> {
     }
 
     saveWebSession(result);
+    publishAuthContextChange(result.user.uuid);
     clearLogoutRequest();
 }
 

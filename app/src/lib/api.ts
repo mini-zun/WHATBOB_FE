@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 
 import { isLogoutInProgress } from "./auth_operation";
 import { clearWebSession, readWebSession, refreshAuthentication } from "./web-auth";
+import { hasAuthContextChanged, markAuthContextChanged } from "./auth_context";
 
 const REQUEST_TIMEOUT = 10000;
 
@@ -29,6 +30,9 @@ type ApiOptions = {
 };
 
 function assertRequestAllowed(options: ApiOptions): void {
+  if(hasAuthContextChanged()) {
+    throw new ApiError("다른 탭에서 계쩡이 변경되었습니다. 다시 시작해 주세요.", 409, "AUTH_CONTEXT_CHANGED",);
+  }
   if (isLogoutInProgress() && !options.allowDuringLogout) {
     throw new ApiError(
       "로그아웃을 처리하고 있습니다. 잠시 기다려 주세요.",
@@ -159,12 +163,19 @@ async function requestOnce<T>(
     const data: unknown =
       response.status === 204 ? null : await response.json().catch(() => null);
 
-    if (!response.ok)
+    if (!response.ok) {
+      const code = getErrorCode(data);
+
+      if (response.status === 409 && code === "AUTH_CONTEXT_CHANGED") {
+        markAuthContextChanged();
+      }
+
       throw new ApiError(
         getErrorMessage(data, response.status),
         response.status,
-        getErrorCode(data),
+        code,
       );
+    }
     return data as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;

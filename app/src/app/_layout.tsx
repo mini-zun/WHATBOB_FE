@@ -4,9 +4,15 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Button, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { initializeAuthentication } from "@/lib/web-auth";
+import { initializeAuthentication, clearWebSession } from "@/lib/web-auth";
 import { readLogoutRequest } from '@/lib/logout_request';
 import { completeLogout, LogoutRestartRequiredError } from '@/lib/logout';
+import {
+  hasAuthContextChanged,
+  subscribeAuthContextChange,
+  subscribeAuthContextInvalidation,
+} from "@/lib/auth_context";
+import { clearLogoutRequest } from "@/lib/logout_request";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -24,6 +30,37 @@ export default function RootLayout() {
   const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    if(typeof window === 'undefined') return;
+
+    const checkAuthContext = () => {
+      if(!hasAuthContextChanged()) return;
+
+      setAuthReady(false);
+      setAuthError("다른 탭에서 계정이 변경되었습니다. 다시 시작해 주세요.", );
+    };
+    const unsubscribeInvalidation =
+      subscribeAuthContextInvalidation(checkAuthContext);
+    const unsubscribe = subscribeAuthContextChange(() => {
+      checkAuthContext();
+    });
+
+    window.addEventListener("focus", checkAuthContext);
+
+    document.addEventListener("visibilitychange", checkAuthContext);
+    checkAuthContext();
+
+    return() => {
+      unsubscribeInvalidation();
+      unsubscribe();
+      window.removeEventListener("focus", checkAuthContext);
+      document.removeEventListener(
+        "visibilitychange",
+        checkAuthContext,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     if (loaded || error) {
@@ -56,7 +93,12 @@ export default function RootLayout() {
     };
 
     startAuthentication().then(() => {
-      if (active) setAuthReady(true);
+      if(!active) return;
+      if(hasAuthContextChanged()) {
+        setAuthError("다른 탭에서 계정이 변경되었습니다. 다시 시작해 주세요.",);
+        return;
+      }
+      setAuthReady(true);
     })
       .catch((error: unknown) => {
         if (!active) return;
@@ -94,6 +136,15 @@ export default function RootLayout() {
               <Button
                 title="다시 시도"
                 onPress={() => {
+                  if(
+                    typeof window !== "undefined" &&
+                    hasAuthContextChanged()
+                  ) {
+                    clearWebSession();
+                    clearLogoutRequest();
+                    window.location.replace("/home");
+                    return;
+                  }
                   setAuthError(null);
                   setRetryCount((count) => count + 1);
                 }}

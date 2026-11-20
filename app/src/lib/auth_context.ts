@@ -63,6 +63,8 @@ export function publishAuthContextChange(userUuid: string): boolean {
             JSON.stringify(change),
         );
 
+        acceptedEventID = change.event_id;
+
         return true;
     } catch {
         return false;
@@ -93,4 +95,40 @@ export function subscribeAuthContextChange(
     return () => {
         window.removeEventListener("storage", handleStorage);
     };
+}
+
+let acceptedEventID = readSharedAuthContext()?.event_id ?? null;
+let contextChanged = false;
+
+const invalidationListeners = new Set<() => void>();
+
+export function markAuthContextChanged(): void {
+    if(contextChanged) return;
+    contextChanged = true;
+
+    for(const listener of invalidationListeners) {
+        listener();
+    }
+}
+
+export function subscribeAuthContextInvalidation(
+    listener: () => void,
+): () => void {
+    invalidationListeners.add(listener);
+
+    return () => {
+        invalidationListeners.delete(listener);
+    };
+}
+
+export function hasAuthContextChanged(): boolean {
+    if(contextChanged) return true;
+
+    const latest = readSharedAuthContext();
+
+    if(latest && latest.event_id !== acceptedEventID) {
+        markAuthContextChanged();
+    }
+
+    return contextChanged;
 }

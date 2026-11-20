@@ -1,3 +1,5 @@
+import { markAuthContextChanged } from "./auth_context";
+
 function getApiHeaders(apiBaseUrl: string): Record<string, string> {
     const hostname = new URL(apiBaseUrl).hostname;
     return hostname.endsWith('.ngrok-free.dev')
@@ -184,6 +186,10 @@ async function requestAuthToken(
                     }
                 }
             }
+            if (response.status === 409 && code === 'AUTH_CONTEXT_CHANGED') {
+                markAuthContextChanged();
+            }
+
             throw new AuthApiError(message, response.status, code);
         }
         if (!isAuthResponse(data)) {
