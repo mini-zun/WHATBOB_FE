@@ -7,6 +7,8 @@ import {
     type AuthResponse
 } from './auth';
 
+import { isLogoutInProgress } from './auth_operation';
+import { hasAuthContextChanged } from './auth_context';
 
 export type KakaoLinkRequest = {
     state: string;
@@ -20,16 +22,73 @@ const SESSION_KEY = 'whatbob_session';
 const REQUEST_TTL = 10 * 60 * 1000;
 let initialization: Promise<AuthResponse> | null = null;
 let tokenRefresh: Promise<AuthResponse> | null = null;
+let tokenRefreshUuid: string | null = null;
 
-export function refreshAuthentication(): Promise<AuthResponse> {
-    if (tokenRefresh) return tokenRefresh;
+export function refreshAuthentication(
+    allowDuringLogout = false,
+): Promise<AuthResponse> {
+    assertAuthContextCurrent();
+    if (isLogoutInProgress() && !allowDuringLogout) {
+        return Promise.reject(
+            new AuthApiError("로그아웃을 처리하고 있습니다. 잠시만 기다려 주세요.",
+                409,
+                "AUTH_TRANSITION_IN_PROGRESS",
+            ),
+        );
+    }
+    const originUuid = readWebSession()?.user.uuid;
+
+    if (!originUuid) {
+        return Promise.reject(
+            new AuthApiError(
+                '인증 정보가 없습니다. 인증을 다시 시작해 주세요.',
+                401,
+                'ACCESS_TOKEN_MISSING',
+            ),
+        );
+    }
+
+    if (tokenRefresh) {
+        if (tokenRefreshUuid !== originUuid) {
+            return Promise.reject(
+                new AuthApiError(
+                    '인증 정보가 변경되었습니다. 새로고침해 주세요.',
+                    409,
+                    'AUTH_CONTEXT_CHANGED',
+                ),
+            );
+        }
+
+        return tokenRefresh;
+    }
+
+    tokenRefreshUuid = originUuid;
 
     tokenRefresh = (async () => {
-        const session = await issueToken();
+        const session = await issueToken(originUuid);
+
+        if (
+            readWebSession()?.user.uuid !== originUuid ||
+            session.user.uuid !== originUuid
+        ) {
+            throw new AuthApiError(
+                '인증 정보가 변경되었습니다. 새로고침해 주세요.',
+                409,
+                'AUTH_CONTEXT_CHANGED',
+            );
+        }
 
         saveWebSession(session);
         return session;
     })().catch((error: unknown) => {
+        if (readWebSession()?.user.uuid !== originUuid) {
+            throw new AuthApiError(
+                '인증 정보가 변경되었습니다. 새로고침해 주세요.',
+                409,
+                'AUTH_CONTEXT_CHANGED',
+            );
+        }
+
         if (!(error instanceof AuthApiError)) {
             throw error;
         }
@@ -45,18 +104,28 @@ export function refreshAuthentication(): Promise<AuthResponse> {
         if (sessionEnded) {
             clearWebSession();
 
-            throw new AuthApiError('인증이 종료되었습니다. 인증을 다시 시작해 주세요.', error.status, error.code,);
+            throw new AuthApiError(
+                '인증이 종료되었습니다. 인증을 다시 시작해 주세요.',
+                error.status,
+                error.code,
+            );
         }
+
         if (
             error.status === 409 &&
             error.code === 'AUTH_CONTEXT_CHANGED'
         ) {
-            throw new AuthApiError('다른 탭에서 인증 정보가 변경되었습니다. 새로고침해 주세요.', error.status, error.code,);
+            throw new AuthApiError(
+                '인증 정보가 변경되었습니다. 새로고침해 주세요.',
+                error.status,
+                error.code,
+            );
         }
 
         throw error;
     }).finally(() => {
         tokenRefresh = null;
+        tokenRefreshUuid = null;
     });
 
     return tokenRefresh;
@@ -66,7 +135,9 @@ export function initializeAuthentication(): Promise<AuthResponse> {
     if (initialization) return initialization;
 
     initialization = (async () => {
+        assertAuthContextCurrent();
         const preparation = await prepareAuthentication();
+        assertAuthContextCurrent();
 
         const session = preparation.next_action === 'CREATE_USER'
             ? await createAnonymousUser()
@@ -126,6 +197,7 @@ export function clearWebSession() {
 }
 
 export function saveWebSession(session: AuthResponse): void {
+    assertAuthContextCurrent();
     if (!isAuthResponse(session)) {
         throw new Error('인증 응답이 올바르지 않습니다.');
     }
@@ -174,12 +246,12 @@ export function saveKakaoTransitionId(
     state: string,
     transitionId: string,
 ): void {
-    if(!transitionId.trim()) {
+    if (!transitionId.trim()) {
         throw new Error('계정 전환 ID가 없습니다.');
     }
     const request = readKakaoLinkRequest(state);
 
-    if(
+    if (
         request.transition_id &&
         request.transition_id !== transitionId
     ) {
@@ -193,4 +265,14 @@ export function saveKakaoTransitionId(
             transition_id: transitionId,
         }),
     );
+}
+
+export async function waitForTokenRefresh(): Promise<void> {
+    await tokenRefresh;
+}
+
+function assertAuthContextCurrent(): void {
+    if(hasAuthContextChanged()) {
+        throw new AuthApiError("다른 탭에서 계정이 변경되었습니다. 다시 시작해 주세요.", 409, "AUTH_CONTEXT_CHANGED",);
+    }
 }

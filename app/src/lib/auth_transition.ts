@@ -9,6 +9,7 @@ import type {
 
 export async function getTransitionStatus(
     transitionId: string,
+    allowDuringLogout = false,
 ): Promise<TransitionStatusResponse> {
     if (!transitionId.trim()) {
         throw new Error("계정 전환 ID가 없습니다.");
@@ -18,6 +19,7 @@ export async function getTransitionStatus(
         `/api/auth/transitions/${encodeURIComponent(transitionId)}`,
         {
             auth: false,
+            allowDuringLogout,
             credentials: "include",
             headers: {
                 "X-Whatbob-Request": "1",
@@ -50,6 +52,7 @@ export async function getTransitionStatus(
 
 export async function recoverTransition(
     transitionId: string,
+    allowDuringLogout = false,
 ): Promise<TransitionCommitResponse> {
     if (!transitionId.trim()) {
         throw new Error("계정 전환 ID가 없습니다.");
@@ -60,6 +63,7 @@ export async function recoverTransition(
         {
             method: "POST",
             auth: false,
+            allowDuringLogout,
             credentials: "include",
             headers: {
                 "X-Whatbob-Request": "1",
@@ -99,6 +103,7 @@ export async function prepareTransition(
     const result = await apiFetch<TransitionPrepareResponse>(
         "/api/auth/transitions",
         {
+            allowDuringLogout: request.action === "LOGOUT",
             method: "POST",
             credentials: "include",
             headers: {
@@ -124,6 +129,7 @@ export async function prepareTransition(
 
 export async function commitTransition(
     transitionId: string,
+    allowDuringLogout = false,
 ): Promise<TransitionCommitResponse> {
     if (!transitionId.trim()) {
         throw new Error("계정 전환 ID가 없습니다.");
@@ -132,6 +138,7 @@ export async function commitTransition(
     const result = await apiFetch<TransitionCommitResponse>(
         `/api/auth/transitions/${encodeURIComponent(transitionId)}/commit`,
         {
+            allowDuringLogout,
             method: "POST",
             credentials: "include",
             headers: {

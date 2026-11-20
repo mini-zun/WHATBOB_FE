@@ -1,7 +1,9 @@
 import { router } from "expo-router";
 import { Platform } from "react-native";
 
+import { isLogoutInProgress } from "./auth_operation";
 import { clearWebSession, readWebSession, refreshAuthentication } from "./web-auth";
+import { hasAuthContextChanged, markAuthContextChanged } from "./auth_context";
 
 const REQUEST_TIMEOUT = 10000;
 
@@ -24,7 +26,21 @@ type ApiOptions = {
   signal?: AbortSignal;
   headers?: Record<string, string>;
   credentials?: "omit" | "same-origin" | "include";
+  allowDuringLogout?: boolean;
 };
+
+function assertRequestAllowed(options: ApiOptions): void {
+  if(hasAuthContextChanged()) {
+    throw new ApiError("다른 탭에서 계정이 변경되었습니다. 다시 시작해 주세요.", 409, "AUTH_CONTEXT_CHANGED",);
+  }
+  if (isLogoutInProgress() && !options.allowDuringLogout) {
+    throw new ApiError(
+      "로그아웃을 처리하고 있습니다. 잠시 기다려 주세요.",
+      409,
+      "AUTH_TRANSITION_IN_PROGRESS",
+    );
+  }
+}
 
 export function getApiBaseUrl(): string {
   const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -52,6 +68,11 @@ export function handleUnauthorized() {
 export function getCurrentUserId(): number | null {
   if (Platform.OS !== "web") return null;
   return readWebSession()?.user.id ?? null;
+}
+
+function getCurrentUserUuid(): string | null {
+  if (Platform.OS !== "web") return null;
+  return readWebSession()?.user.uuid ?? null;
 }
 
 function getErrorCode(data: unknown): string | undefined {
@@ -99,6 +120,7 @@ async function requestOnce<T>(
   path: string,
   options: ApiOptions = {},
 ): Promise<T> {
+  assertRequestAllowed(options);
   const { method = "GET", body, auth = true, signal, headers: extraHeaders, credentials, } = options;
   const apiBaseUrl = getApiBaseUrl();
 
@@ -141,12 +163,19 @@ async function requestOnce<T>(
     const data: unknown =
       response.status === 204 ? null : await response.json().catch(() => null);
 
-    if (!response.ok)
+    if (!response.ok) {
+      const code = getErrorCode(data);
+
+      if (response.status === 409 && code === "AUTH_CONTEXT_CHANGED") {
+        markAuthContextChanged();
+      }
+
       throw new ApiError(
         getErrorMessage(data, response.status),
         response.status,
-        getErrorCode(data),
+        code,
       );
+    }
     return data as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
@@ -169,9 +198,27 @@ export async function apiFetch<T>(
   options: ApiOptions = {},
 ): Promise<T> {
   const originalToken = getAccessToken();
+  const originalUuid = getCurrentUserUuid();
+
+  const assertSameUser = () => {
+    assertRequestAllowed(options);
+    if (
+      options.auth !== false &&
+      getCurrentUserUuid() !== originalUuid
+    ) {
+      throw new ApiError(
+        "인증 정보가 변경되었습니다. 새로고침해 주세요.",
+        409,
+        "AUTH_CONTEXT_CHANGED",
+      );
+    }
+  };
 
   try {
-    return await requestOnce<T>(path, options);
+    const result = await requestOnce<T>(path, options);
+
+    assertSameUser();
+    return result;
   } catch (error) {
     if (
       options.auth === false ||
@@ -183,16 +230,21 @@ export async function apiFetch<T>(
     }
 
     options.signal?.throwIfAborted();
+    assertSameUser();
 
     const currentToken = getAccessToken();
     if (!currentToken) throw error;
 
     if (currentToken === originalToken) {
-      await refreshAuthentication();
+      await refreshAuthentication(options.allowDuringLogout);
     }
 
     options.signal?.throwIfAborted();
+    assertSameUser();
 
-    return requestOnce<T>(path, options);
+    const result = await requestOnce<T>(path, options);
+
+    assertSameUser();
+    return result;
   }
 }

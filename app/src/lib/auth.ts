@@ -1,3 +1,5 @@
+import { markAuthContextChanged } from "./auth_context";
+
 function getApiHeaders(apiBaseUrl: string): Record<string, string> {
     const hostname = new URL(apiBaseUrl).hostname;
     return hostname.endsWith('.ngrok-free.dev')
@@ -135,7 +137,7 @@ export async function prepareAuthentication(): Promise<PrepareAuthentication> {
 }
 
 async function requestAuthToken(
-    path: '/api/auth/anonymous-users' | '/api/auth/tokens',
+    path: '/api/auth/anonymous-users' | '/api/auth/tokens', expectedUserUuid?: string,
 ): Promise<AuthResponse> {
     const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
     if (!apiBaseUrl) throw new Error('API 주소가 설정되지 않았습니다.');
@@ -152,6 +154,10 @@ async function requestAuthToken(
                 headers: {
                     ...getApiHeaders(apiBaseUrl),
                     'X-Whatbob-Request': '1',
+                    ...(
+                        path === '/api/auth/tokens' && expectedUserUuid
+                        ? { 'X-Whatbob-Auth-Context' : expectedUserUuid} : {}
+                    ),
                 },
                 signal: controller.signal,
             },
@@ -180,6 +186,10 @@ async function requestAuthToken(
                     }
                 }
             }
+            if (response.status === 409 && code === 'AUTH_CONTEXT_CHANGED') {
+                markAuthContextChanged();
+            }
+
             throw new AuthApiError(message, response.status, code);
         }
         if (!isAuthResponse(data)) {
@@ -201,8 +211,10 @@ export function createAnonymousUser(): Promise<AuthResponse> {
     return requestAuthToken('/api/auth/anonymous-users');
 }
 
-export function issueToken(): Promise<AuthResponse> {
-    return requestAuthToken('/api/auth/tokens');
+export function issueToken(
+    expectedUserUuid?: string,
+): Promise<AuthResponse> {
+    return requestAuthToken('/api/auth/tokens', expectedUserUuid,);
 }
 
 export class AuthApiError extends Error {
