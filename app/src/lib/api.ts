@@ -31,7 +31,7 @@ type ApiOptions = {
 
 function assertRequestAllowed(options: ApiOptions): void {
   if(hasAuthContextChanged()) {
-    throw new ApiError("다른 탭에서 계쩡이 변경되었습니다. 다시 시작해 주세요.", 409, "AUTH_CONTEXT_CHANGED",);
+    throw new ApiError("다른 탭에서 계정이 변경되었습니다. 다시 시작해 주세요.", 409, "AUTH_CONTEXT_CHANGED",);
   }
   if (isLogoutInProgress() && !options.allowDuringLogout) {
     throw new ApiError(

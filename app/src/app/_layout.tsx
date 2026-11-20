@@ -104,7 +104,7 @@ export default function RootLayout() {
         if (!active) return;
 
         setAuthError(
-          error instanceof Error ? error.message : "인증 상태를 확인하지 못했습니다. 다시 시도해 주세ㅛㅇ.",
+          error instanceof Error ? error.message : "인증 상태를 확인하지 못했습니다. 다시 시도해 주세요.",
         );
       });
 
