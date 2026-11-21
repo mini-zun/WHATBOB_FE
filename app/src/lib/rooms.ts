@@ -1,4 +1,5 @@
 import { ApiError, apiFetch, getApiBaseUrl, getCurrentUserId, handleUnauthorized } from "./api";
+import { OrderSheetQuestion, OrderSheetQuestionsData } from "@/types/order_sheet";
 
 export type RoomMember = {
   user_id: number;
@@ -45,6 +46,51 @@ export type RoomDetail = {
   members: RoomMember[];
   completed_member_count: number;
   all_members_completed: boolean;
+  state_version: number;
+  current_round: RoomRound | null;
+  viewer_state: RoomViewerState | null;
+};
+
+export type RoomRoundStatus =
+  | "ANSWERING"
+  | "ANSWERING_PAUSED"
+  | "VOTING"
+  | "VOTING_PAUSED"
+  | "RESULT"
+  | "CANCELLED";
+
+export type RoomRound = {
+  round_id: number;
+  round_no: number;
+  status: RoomRoundStatus;
+};
+
+export type RoomViewerState = {
+  round_id: number | null;
+  round_no: number | null;
+  round_status: RoomRoundStatus | null;
+  has_submitted_order_sheet: boolean;
+  assigned_questions: OrderSheetQuestion[];
+};
+
+export type RoomRoundStartResponse = {
+  room_id: string;
+  round_id: number;
+  round_no: number;
+  status: RoomRoundStatus;
+  room_status: string;
+  vote_round_no: number;
+  decision_version: number;
+  cancel_reason?: string | null;
+};
+
+export type RoomQuestionsResponse = OrderSheetQuestionsData & {
+  room_id: string;
+  round_id: number;
+  round_no: number;
+  round_status: RoomRoundStatus;
+  has_submitted: boolean;
+  submitted_at: string | null;
 };
 
 export type RoomCloseReason = "HOST_LEFT" | "HOST_DISCONNECTED" | "EXPIRED";
@@ -68,18 +114,18 @@ export type RoomMemberLeaveResponse = {
 export type RoomSocketMessage =
   | { type: "connection.ready"; room_id: string; user_id: number }
   | {
-      type: "room.updated";
-      room_id: string;
-      reason: string;
-      user_id: number;
-      occurred_at: string;
-    }
+    type: "room.updated";
+    room_id: string;
+    reason: string;
+    user_id: number;
+    occurred_at: string;
+  }
   | {
-      type: "room.closed";
-      room_id: string;
-      reason: RoomCloseReason;
-      closed_at: string;
-    }
+    type: "room.closed";
+    room_id: string;
+    reason: RoomCloseReason;
+    closed_at: string;
+  }
   | { type: "pong" };
 
 const ROOM_ID =
@@ -113,6 +159,29 @@ export function joinRoom(roomId: string): Promise<RoomJoinResponse> {
   return apiFetch<RoomJoinResponse>(`${roomPath(roomId)}/join`, {
     method: "POST",
   });
+}
+
+export function startRoomRound(
+  roomId: string,
+): Promise<RoomRoundStartResponse> {
+  return apiFetch<RoomRoundStartResponse>(
+    `${roomPath(roomId)}/rounds/start`,
+    {
+      method: "POST",
+    },
+  );
+}
+
+export function getRoomQuestions(
+  roomId: string,
+  signal?: AbortSignal,
+): Promise<RoomQuestionsResponse> {
+  return apiFetch<RoomQuestionsResponse>(
+    `${roomPath(roomId)}/rounds/current/questions`,
+    {
+      signal,
+    },
+  );
 }
 
 export async function leaveRoom(
