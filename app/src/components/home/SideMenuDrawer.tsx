@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { ComponentProps } from "react";
-import { BackHandler, Pressable, StyleSheet, Text, View, Platform } from "react-native";
+import {
+  BackHandler,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  Platform,
+} from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -43,18 +50,16 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
     const needsRecovery = isLogoutInProgress();
 
     setLogoutError(
-      needsRecovery ? "로그아웃 상태 확인이 필요해요.\n다시 시도해 주세요." : undefined,
+      needsRecovery
+        ? "로그아웃 상태 확인이 필요해요.\n다시 시도해 주세요."
+        : undefined,
     );
     setLogoutCanCancel(!needsRecovery);
     setLogoutOpen(true);
   };
 
   const handleCancelLogout = () => {
-    if (
-      logoutBusyRef.current ||
-      isLogoutInProgress() ||
-      !logoutCanCancel
-    ) {
+    if (logoutBusyRef.current || isLogoutInProgress() || !logoutCanCancel) {
       return;
     }
 
@@ -85,7 +90,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
       await completeLogout();
       window.location.replace("/home");
     } catch (error) {
-      if(error instanceof LogoutRestartRequiredError) {
+      if (error instanceof LogoutRestartRequiredError) {
         window.location.replace("/home");
         return;
       }
@@ -105,9 +110,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           "로그아웃 상태 확인이 필요해요.\n연결을 확인하고 다시 시도해 주세요.",
         );
       } else {
-        setLogoutError(
-          "로그아웃하지 못했어요.\n잠시 후 다시 시도해 주세요.",
-        );
+        setLogoutError("로그아웃하지 못했어요.\n잠시 후 다시 시도해 주세요.");
       }
     } finally {
       logoutBusyRef.current = false;
@@ -137,6 +140,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
     setPendingPath("/food_history");
   };
 
+  const handleToProfileEdit = () => {
+    setPendingPath("/profile_edit");
+  };
+
   useEffect(() => {
     if (!visible) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -161,11 +168,14 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
 
   if (!visible) return null;
 
-  const user = Platform.OS === "web" && typeof window !== "undefined" ? readWebSession()?.user : null;
+  const user =
+    Platform.OS === "web" && typeof window !== "undefined"
+      ? readWebSession()?.user
+      : null;
   const nickname = user?.nickname?.trim() || "사용자";
   const profileimage = user?.profile_image?.trim();
   const canLinkKakao = !!user && user.kakao_id === null;
-  const isKakaoLinked = typeof user?.kakao_id === 'number';
+  const isKakaoLinked = typeof user?.kakao_id === "number";
 
   return (
     <>
@@ -174,7 +184,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         exiting={pendingPath ? undefined : FadeOut.duration(80)}
         style={styles.backdrop}
       >
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleDrawerClose} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={handleDrawerClose}
+        />
       </Animated.View>
 
       <Animated.View
@@ -184,14 +197,28 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         pointerEvents={logoutOpen ? "none" : "auto"}
       >
         <View style={styles.profileBack}>
-          <Image source={
-            profileimage ? { uri: profileimage } : require("@/assets/images/empty_user_icon.png")
-          }
-            contentFit="cover"
-            style={styles.profileIconSec}
-          />
-          <View style={styles.userNameRow}>
-            <Text style={styles.userName} numberOfLines={1}>{nickname}</Text>
+          <View style={styles.profileEditLayout}>
+            <Image
+              source={
+                profileimage
+                  ? { uri: profileimage }
+                  : require("@/assets/images/empty_user_icon.png")
+              }
+              contentFit="cover"
+              style={styles.profileIconSec}
+            />
+            <Pressable>
+              <Image
+                source={require("@/assets/images/profile_edit_btn.png")}
+                contentFit="contain"
+                style={styles.profileEditButton}
+              />
+            </Pressable>
+          </View>
+          <View style={styles.userNameSec}>
+            <Text style={styles.userName} numberOfLines={1}>
+              {nickname} 님
+            </Text>
             {isKakaoLinked && (
               <Image
                 source={require("@/assets/images/kakao_login_kr_small.png")}
@@ -199,8 +226,15 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
                 style={styles.kakaoLogo}
                 accessible
                 accessibilityLabel="카카오 계정 연결됨"
-              ></Image>
+              />
             )}
+            <Pressable>
+              <Image
+                source={require("@/assets/images/edit_pen.png")}
+                contentFit="contain"
+                style={styles.nameEditPen}
+              />
+            </Pressable>
           </View>
           <Text style={styles.profileDesc}>오늘도 맛있는 하루 되세요!</Text>
         </View>
@@ -348,12 +382,35 @@ const styles = StyleSheet.create({
     paddingBottom: 21,
     marginBottom: 71,
   },
+  profileEditLayout: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    marginBottom: 13,
+  },
   profileIconSec: {
     width: 85,
     height: 85,
     borderRadius: 100,
     backgroundColor: Colors.white,
-    marginBottom: 13,
+  },
+  profileEditButton: {
+    width: 31,
+    height: 31,
+    transform: [{ translateX: -20 }],
+  },
+  userNameSec: {
+    flexDirection: "row",
+    gap: 4,
+    alignItems: "center",
+    marginBottom: 7,
+  },
+  userName: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 22,
+  },
+  nameEditPen: {
+    width: 15,
+    height: 15,
   },
   profileDesc: {
     fontFamily: Fonts.bodyDesc,
@@ -401,22 +458,10 @@ const styles = StyleSheet.create({
     color: Colors.textBrown,
     alignItems: "center",
   },
-
-  userNameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 7,
-  },
   kakaoLogo: {
     width: 70,
     height: 26,
     flexShrink: 0,
-  },
-  userName: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 22,
-    flexShrink: 1,
   },
   accountActions: {
     marginTop: "auto",

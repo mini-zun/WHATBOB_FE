@@ -11,6 +11,7 @@ export const Colors = {
   cardGreen: "#E5E9D4",
   buttonBrown: "#5A3A1F",
   buttonLightBrown: "#8e571f",
+  borderBrown: "#886137",
   backGrey: "#F0EFE3",
   resultCardBackground: "#EFEFE5",
   white: "#FFFFFF",
