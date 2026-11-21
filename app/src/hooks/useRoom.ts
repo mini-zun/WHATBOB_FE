@@ -16,6 +16,7 @@ const GONE_STATUSES = [404, 410];
 
 const SOCKET_CLOSE = {
   roomClosed: 4000,
+  memberLeft: 4001,
   unauthorized: 4401,
   forbidden: 4403,
   notFound: 4404,
@@ -128,7 +129,6 @@ export function useRoom(roomId: string | undefined) {
           pingTimer = setInterval(() => {
             ws.send(JSON.stringify({ type: "ping" }));
           }, PING_INTERVAL);
-          // 연결이 끊겨 있던 동안 놓친 변경을 반영한다
           refreshRef.current();
         } else if (message.type === "room.updated") {
           refreshRef.current();
@@ -154,6 +154,7 @@ export function useRoom(roomId: string | undefined) {
             stopped = true;
             handleUnauthorized();
             return;
+          case SOCKET_CLOSE.memberLeft:
           case SOCKET_CLOSE.forbidden:
             stopped = true;
             refreshRef.current();

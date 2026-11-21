@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ComponentProps } from "react";
 import {
   BackHandler,
@@ -22,6 +22,10 @@ import Constants from "expo-constants";
 import { Colors, Fonts } from "@/constants/theme";
 import { PrivacyPolicyPopUp } from "./PrivacyPolicyPop";
 import { readWebSession } from "@/lib/web-auth";
+import { LogoutConfirmPopUp } from "./LogoutConfirmPop";
+import { completeLogout, LogoutRestartRequiredError } from "@/lib/logout";
+import { isLogoutInProgress } from "@/lib/auth_operation";
+import { ApiError } from "@/lib/api";
 
 type Props = {
   visible: boolean;
@@ -33,19 +37,110 @@ const APP_VERSION = Constants.expoConfig?.version ?? "";
 export function SideMenuDrawer({ visible, onClose }: Props) {
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [pendingPath, setPendingPath] = useState<Href | null>(null);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [logoutBusy, setLogoutBusy] = useState(false);
+  const [logoutError, setLogoutError] = useState<string>();
+  const [logoutCanCancel, setLogoutCanCancel] = useState(true);
+
+  const logoutBusyRef = useRef(false);
+
+  const handleOpenLogout = () => {
+    if (logoutBusyRef.current) return;
+
+    const needsRecovery = isLogoutInProgress();
+
+    setLogoutError(
+      needsRecovery ? "로그아웃 상태 확인이 필요해요.\n다시 시도해 주세요." : undefined,
+    );
+    setLogoutCanCancel(!needsRecovery);
+    setLogoutOpen(true);
+  };
+
+  const handleCancelLogout = () => {
+    if (
+      logoutBusyRef.current ||
+      isLogoutInProgress() ||
+      !logoutCanCancel
+    ) {
+      return;
+    }
+
+    setLogoutOpen(false);
+    setLogoutError(undefined);
+  };
+
+  const handleDrawerClose = () => {
+    if (logoutOpen) {
+      handleCancelLogout();
+      return;
+    }
+
+    if (logoutBusyRef.current || isLogoutInProgress()) return;
+    onClose();
+  };
+
+  const handleConfirmLogout = async () => {
+    if (logoutBusyRef.current) return;
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+
+    logoutBusyRef.current = true;
+    setLogoutBusy(true);
+    setLogoutError(undefined);
+    setLogoutCanCancel(false);
+
+    try {
+      await completeLogout();
+      window.location.replace("/home");
+    } catch (error) {
+      if(error instanceof LogoutRestartRequiredError) {
+        window.location.replace("/home");
+        return;
+      }
+      const needsRecovery = isLogoutInProgress();
+
+      setLogoutCanCancel(!needsRecovery);
+
+      if (
+        error instanceof ApiError &&
+        error.code === "ROOM_PARTICIPATION_ACTIVE"
+      ) {
+        setLogoutError(
+          "참여 중인 방이 있어요.\n방 참여를 종료한 뒤 시도해 주세요.",
+        );
+      } else if (needsRecovery) {
+        setLogoutError(
+          "로그아웃 상태 확인이 필요해요.\n연결을 확인하고 다시 시도해 주세요.",
+        );
+      } else {
+        setLogoutError(
+          "로그아웃하지 못했어요.\n잠시 후 다시 시도해 주세요.",
+        );
+      }
+    } finally {
+      logoutBusyRef.current = false;
+      setLogoutBusy(false);
+    }
+  };
 
   useEffect(() => {
-    if (!pendingPath) return;
+    if (!pendingPath || logoutOpen || isLogoutInProgress()) return;
     onClose();
     router.push(pendingPath);
     setPendingPath(null);
-  }, [pendingPath, onClose]);
+  }, [pendingPath, onClose, logoutOpen]);
 
   const handleToNonPreferenceFood = () => {
+    if (logoutOpen || isLogoutInProgress()) return;
     setPendingPath("/non_preference_food");
   };
 
+  const handleToKakaoLink = () => {
+    if (logoutOpen || isLogoutInProgress()) return;
+    setPendingPath("/login");
+  };
+
   const handleToFoodHistory = () => {
+    if (logoutOpen || isLogoutInProgress()) return;
     setPendingPath("/food_history");
   };
 
@@ -56,11 +151,24 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
   useEffect(() => {
     if (!visible) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      onClose();
+      if (logoutOpen) {
+        if (
+          !logoutBusyRef.current &&
+          !isLogoutInProgress() &&
+          logoutCanCancel
+        ) {
+          setLogoutOpen(false);
+          setLogoutError(undefined);
+        }
+
+        return true;
+      }
+
+      if (!isLogoutInProgress()) onClose();
       return true;
     });
     return () => sub.remove();
-  }, [visible, onClose]);
+  }, [visible, onClose, logoutOpen, logoutCanCancel]);
 
   if (!visible) return null;
 
@@ -70,6 +178,8 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
       : null;
   const nickname = user?.nickname?.trim() || "사용자";
   const profileimage = user?.profile_image?.trim();
+  const canLinkKakao = !!user && user.kakao_id === null;
+  const isKakaoLinked = typeof user?.kakao_id === 'number';
 
   return (
     <>
@@ -78,13 +188,14 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         exiting={pendingPath ? undefined : FadeOut.duration(80)}
         style={styles.backdrop}
       >
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={handleDrawerClose} />
       </Animated.View>
 
       <Animated.View
         entering={SlideInRight.duration(130)}
         exiting={pendingPath ? undefined : SlideOutRight.duration(80)}
         style={[styles.panel]}
+        pointerEvents={logoutOpen ? "none" : "auto"}
       >
         <View style={styles.profileBack}>
           <View style={styles.profileEditLayout}>
@@ -109,6 +220,14 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
             <Text style={styles.userName} numberOfLines={1}>
               {nickname} 님
             </Text>
+            {isKakaoLinked && (
+              <Image
+                source={require("@/assets/images/kakao_login_kr_small.png")}
+                contentFit="contain"
+                style={styles.kakaoLogo}
+                accessible
+                accessibilityLabel="카카오 계정 연결됨"
+              />
             <Pressable>
               <Image
                 source={require("@/assets/images/edit_pen.png")}
@@ -133,6 +252,15 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           menuIconColor="orange"
           onPress={handleToFoodHistory}
         />
+
+        {canLinkKakao && (
+          <MenuItem
+            menuTitle="카카오 계정 연결"
+            menuIcon="link"
+            menuIconColor="darkYellow"
+            onPress={handleToKakaoLink}
+          />
+        )}
         <View style={styles.menuEnd} />
 
         <Text style={styles.menuTitle}>약관 및 정보</Text>
@@ -141,7 +269,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           menuTitle="개인정보 처리방침"
           menuIcon="lock"
           menuIconColor="darkYellow"
-          onPress={() => setPrivacyOpen(true)}
+          onPress={() => {
+            if (logoutOpen || isLogoutInProgress()) return;
+            setPrivacyOpen(true);
+          }}
         />
         <MenuItem
           menuTitle="앱 버전"
@@ -150,10 +281,38 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           isVersion
         />
         <View style={styles.menuEnd} />
+        {isKakaoLinked && (
+          <View style={styles.accountActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="로그아웃"
+              accessibilityState={{
+                disabled: logoutBusy || Platform.OS !== "web",
+                busy: logoutBusy,
+              }}
+              disabled={logoutBusy || Platform.OS !== "web"}
+              onPress={handleOpenLogout}
+              style={[
+                styles.logoutButton,
+                logoutBusy && styles.logoutButtonDisabled,
+              ]}
+            >
+              <Text style={styles.logoutText}>로그아웃</Text>
+            </Pressable>
+          </View>
+        )}
       </Animated.View>
       <PrivacyPolicyPopUp
         visible={privacyOpen}
         onClose={() => setPrivacyOpen(false)}
+      />
+      <LogoutConfirmPopUp
+        visible={logoutOpen}
+        busy={logoutBusy}
+        errorMessage={logoutError}
+        canCancel={logoutCanCancel}
+        onCancel={handleCancelLogout}
+        onConfirm={handleConfirmLogout}
       />
     </>
   );
@@ -298,5 +457,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textBrown,
     alignItems: "center",
+  },
+  kakaoLogo: {
+    width: 70,
+    height: 26,
+    flexShrink: 0,
+  },
+  userName: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 22,
+    flexShrink: 1,
+  },
+  accountActions: {
+    marginTop: "auto",
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  logoutButton: {
+    alignSelf: "flex-start",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  logoutButtonDisabled: {
+    opacity: 0.45,
+  },
+  logoutText: {
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 16,
+    color: Colors.textBrown,
   },
 });

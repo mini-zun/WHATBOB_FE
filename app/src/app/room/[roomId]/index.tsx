@@ -20,6 +20,7 @@ import { ApiError } from "@/lib/api";
 import {
   deleteRoom,
   joinRoom,
+  leaveRoom,
   parseRoomId,
   type RoomDetail,
   type RoomMember,
@@ -30,7 +31,7 @@ const handleBack = () => {
   else router.replace("/pick_with_friend");
 };
 
-const GONE_STATUSES = [404, 410];
+const GONE_STATUSES = [404, 409, 410];
 
 const CLOSED_MESSAGES: Record<RoomClosedReason, string> = {
   HOST_LEFT: "방장이 방을 나가서\n방이 사라졌어요.",
@@ -63,26 +64,16 @@ export default function RoomScreen() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const shouldConfirmLeave = room?.my_role === "HOST" && !closedReason && !left;
-
-  useEffect(() => {
-    if (!shouldConfirmLeave) return;
-    return navigation.addListener("beforeRemove", (e) => {
-      e.preventDefault();
-      setLeaveRequest({ action: e.data.action });
-    });
-  }, [navigation, shouldConfirmLeave]);
-
-  useEffect(() => {
-    if (left && leaveRequest) navigation.dispatch(leaveRequest.action);
-  }, [navigation, left, leaveRequest]);
+  const isHost = room?.my_role === "HOST";
+  const shouldInterceptLeave = !!room?.is_member && !closedReason && !left;
 
   const handleLeaveRoom = async () => {
     if (!roomId || leaving) return;
     setLeaving(true);
     setLeaveError(null);
     try {
-      await deleteRoom(roomId);
+      if (isHost) await deleteRoom(roomId);
+      else await leaveRoom(roomId);
     } catch (e) {
       const alreadyGone =
         e instanceof ApiError && GONE_STATUSES.includes(e.status);
@@ -96,6 +87,18 @@ export default function RoomScreen() {
     }
     setLeft(true);
   };
+
+  useEffect(() => {
+    if (!shouldInterceptLeave) return;
+    return navigation.addListener("beforeRemove", (e) => {
+      e.preventDefault();
+      setLeaveRequest({ action: e.data.action });
+    });
+  }, [navigation, shouldInterceptLeave]);
+
+  useEffect(() => {
+    if (left && leaveRequest) navigation.dispatch(leaveRequest.action);
+  }, [navigation, left, leaveRequest]);
 
   const handleCancelLeave = () => {
     if (leaving) return;
@@ -133,7 +136,9 @@ export default function RoomScreen() {
       return {
         message:
           leaveError ??
-          "정말로 나가시겠습니까?\n방을 나가면 모두가 굶게돼요😭.",
+          (isHost
+            ? "정말로 나가시겠습니까?\n방을 나가면 모두가 굶게돼요😭."
+            : "방을 나가시겠습니까?"),
         leftButtonText: leaving ? "나가는 중..." : "예",
         rightButtonText: "아니요",
         onLeftButtonClick: handleLeaveRoom,

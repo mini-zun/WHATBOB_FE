@@ -47,11 +47,22 @@ export default async function handler(req, res) {
       Accept: "application/json",
     };
 
-    // 로그인 이후 API 호출에 필요한 JWT 전달
-    if (req.headers.authorization) {
-      headers.Authorization = req.headers.authorization;
-    }
+    const forwardedHeaders = [
+      "authorization",
+      "origin",
+      "x-whatbob-request",
+      "cookie",
+      "idempotency-key",
+      "x-whatbob-auth-context",
+    ];
 
+    for (const name of forwardedHeaders) {
+      const value = req.headers[name];
+
+      if (typeof value === "string") {
+        headers[name] = value;
+      }
+    }
     const options = {
       method: req.method,
       headers,
@@ -78,6 +89,12 @@ export default async function handler(req, res) {
       "Content-Type",
       upstream.headers.get("content-type") || "application/json"
     );
+
+    const setCookies = upstream.headers.getSetCookie();
+
+    if(setCookies.length > 0) {
+      res.setHeader("Set-Cookie", setCookies);
+    }
 
     if (req.method === "HEAD" || upstream.status === 204) {
       return res.end();

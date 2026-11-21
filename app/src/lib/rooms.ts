@@ -1,4 +1,4 @@
-import { ApiError, apiFetch, getApiBaseUrl } from "./api";
+import { ApiError, apiFetch, getApiBaseUrl, getCurrentUserId, handleUnauthorized } from "./api";
 
 export type RoomMember = {
   user_id: number;
@@ -56,6 +56,15 @@ export type RoomDeleteResponse = {
   closed_at: string;
 };
 
+export type RoomMemberLeaveResponse = {
+  room_id: string;
+  user_id: number;
+  deleted: boolean;
+  member_count: number;
+  completed_member_count: number;
+  all_members_completed: boolean;
+};
+
 export type RoomSocketMessage =
   | { type: "connection.ready"; room_id: string; user_id: number }
   | {
@@ -106,12 +115,25 @@ export function joinRoom(roomId: string): Promise<RoomJoinResponse> {
   });
 }
 
+export async function leaveRoom(
+  roomId: string,
+): Promise<RoomMemberLeaveResponse> {
+  const userId = getCurrentUserId();
+  if (userId === null) {
+    handleUnauthorized();
+    throw new ApiError("로그인이 필요합니다.", 401);
+  }
+  return apiFetch<RoomMemberLeaveResponse>(
+    `${roomPath(roomId)}/members/${userId}`,
+    { method: "DELETE" },
+  );
+}
+
 export function deleteRoom(roomId: string): Promise<RoomDeleteResponse> {
   return apiFetch<RoomDeleteResponse>(roomPath(roomId), { method: "DELETE" });
 }
 
 export function roomSocketUrl(roomId: string) {
-  // Vercel 프록시는 WebSocket을 전달하지 못해서 배포 환경은 백엔드 주소를 따로 지정한다
   const wsBaseUrl =
     process.env.EXPO_PUBLIC_WS_BASE_URL ??
     getApiBaseUrl().replace(/^http/, "ws");

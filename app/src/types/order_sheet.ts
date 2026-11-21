@@ -44,7 +44,6 @@ export type OrderSheetAnswer = {
 };
 
 export type OrderSheetRecommendRequest = {
-  user_id?: number | null;
   exclusions?: string[];
   answers: OrderSheetAnswer[];
   top_k?: number;
@@ -84,7 +83,6 @@ export type OrderSheetRecommendResponse =
   ApiResponse<OrderSheetRecommendData>;
 
 export type RecommendationFeedbackRequest = {
-  user_id?: number | null;
   selected_menu_id?: number | null;
   is_satisfied: boolean;
 };
