@@ -107,7 +107,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           </View>
           <View style={styles.userNameSec}>
             <Text style={styles.userName} numberOfLines={1}>
-              {nickname}
+              {nickname} 님
             </Text>
             <Pressable>
               <Image
