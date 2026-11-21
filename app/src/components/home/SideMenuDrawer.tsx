@@ -50,18 +50,16 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
     const needsRecovery = isLogoutInProgress();
 
     setLogoutError(
-      needsRecovery ? "로그아웃 상태 확인이 필요해요.\n다시 시도해 주세요." : undefined,
+      needsRecovery
+        ? "로그아웃 상태 확인이 필요해요.\n다시 시도해 주세요."
+        : undefined,
     );
     setLogoutCanCancel(!needsRecovery);
     setLogoutOpen(true);
   };
 
   const handleCancelLogout = () => {
-    if (
-      logoutBusyRef.current ||
-      isLogoutInProgress() ||
-      !logoutCanCancel
-    ) {
+    if (logoutBusyRef.current || isLogoutInProgress() || !logoutCanCancel) {
       return;
     }
 
@@ -92,7 +90,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
       await completeLogout();
       window.location.replace("/home");
     } catch (error) {
-      if(error instanceof LogoutRestartRequiredError) {
+      if (error instanceof LogoutRestartRequiredError) {
         window.location.replace("/home");
         return;
       }
@@ -112,9 +110,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           "로그아웃 상태 확인이 필요해요.\n연결을 확인하고 다시 시도해 주세요.",
         );
       } else {
-        setLogoutError(
-          "로그아웃하지 못했어요.\n잠시 후 다시 시도해 주세요.",
-        );
+        setLogoutError("로그아웃하지 못했어요.\n잠시 후 다시 시도해 주세요.");
       }
     } finally {
       logoutBusyRef.current = false;
@@ -179,7 +175,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
   const nickname = user?.nickname?.trim() || "사용자";
   const profileimage = user?.profile_image?.trim();
   const canLinkKakao = !!user && user.kakao_id === null;
-  const isKakaoLinked = typeof user?.kakao_id === 'number';
+  const isKakaoLinked = typeof user?.kakao_id === "number";
 
   return (
     <>
@@ -188,7 +184,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         exiting={pendingPath ? undefined : FadeOut.duration(80)}
         style={styles.backdrop}
       >
-        <Pressable style={StyleSheet.absoluteFill} onPress={handleDrawerClose} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={handleDrawerClose}
+        />
       </Animated.View>
 
       <Animated.View
@@ -228,6 +227,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
                 accessible
                 accessibilityLabel="카카오 계정 연결됨"
               />
+            )}
             <Pressable>
               <Image
                 source={require("@/assets/images/edit_pen.png")}
@@ -462,11 +462,6 @@ const styles = StyleSheet.create({
     width: 70,
     height: 26,
     flexShrink: 0,
-  },
-  userName: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 22,
-    flexShrink: 1,
   },
   accountActions: {
     marginTop: "auto",
