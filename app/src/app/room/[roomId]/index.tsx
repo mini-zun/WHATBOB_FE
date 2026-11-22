@@ -15,7 +15,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PopUpBox } from "@/components/home/PopUpMessage";
 import { Colors, Fonts } from "@/constants/theme";
-import { useRoom, type RoomClosedReason } from "@/hooks/useRoom";
+import { useRoomSession } from "@/contexts/RoomSessionContext";
+import type { RoomClosedReason } from "@/hooks/useRoom";
 import { ApiError } from "@/lib/api";
 import {
   deleteRoom,
@@ -49,7 +50,7 @@ function getErrorTitle(error: ApiError | null) {
 export default function RoomScreen() {
   const params = useLocalSearchParams<{ roomId: string }>();
   const roomId = parseRoomId(params.roomId ?? "") ?? undefined;
-  const { room, error, loading, refresh, closedReason } = useRoom(roomId);
+  const { room, error, loading, refresh, closedReason } = useRoomSession();
   const navigation = useNavigation();
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
