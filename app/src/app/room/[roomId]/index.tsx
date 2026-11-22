@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { router, useLocalSearchParams, useNavigation } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
@@ -20,20 +20,11 @@ import type { RoomClosedReason } from "@/hooks/useRoom";
 import { ApiError } from "@/lib/api";
 import {
   startRoomRound,
-  deleteRoom,
   joinRoom,
-  leaveRoom,
   parseRoomId,
   type RoomDetail,
   type RoomMember,
 } from "@/lib/rooms";
-
-const handleBack = () => {
-  if (router.canGoBack()) router.back();
-  else router.replace("/pick_with_friend");
-};
-
-const GONE_STATUSES = [404, 409, 410];
 
 const CLOSED_MESSAGES: Record<RoomClosedReason, string> = {
   HOST_LEFT: "방장이 방을 나가서\n방이 사라졌어요.",
@@ -51,24 +42,20 @@ function getErrorTitle(error: ApiError | null) {
 export default function RoomScreen() {
   const params = useLocalSearchParams<{ roomId: string }>();
   const roomId = parseRoomId(params.roomId ?? "") ?? undefined;
-  const { room, error, loading, refresh, closedReason } = useRoomSession();
-  const navigation = useNavigation();
+  const {
+    room, error, loading, refresh, closedReason,
+    requestExit, exitOpen, leaving, left,
+  } = useRoomSession();
+  const handleBack = requestExit;
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const startInProgress = useRef(false);
-  const [leaveRequest, setLeaveRequest] = useState<{
-    action: Parameters<typeof navigation.dispatch>[0];
-  } | null>(null);
-  const [leaving, setLeaving] = useState(false);
-  const [left, setLeft] = useState(false);
-  const [leaveError, setLeaveError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   const isHost = room?.my_role === "HOST";
-  const shouldInterceptLeave = !!room?.is_member && !closedReason && !left;
 
   const canStart = Boolean(
     room?.is_member &&
@@ -78,7 +65,7 @@ export default function RoomScreen() {
     (!room.current_round ||
       room.current_round.status === "CANCELLED"
     ) && !closedReason &&
-    !left && !leaving && !leaveRequest && !error,
+    !left && !leaving && !exitOpen && !error,
   );
 
   const handleStart = async () => {
@@ -102,45 +89,6 @@ export default function RoomScreen() {
     }
   };
 
-  const handleLeaveRoom = async () => {
-    if (!roomId || leaving) return;
-    setLeaving(true);
-    setLeaveError(null);
-    try {
-      if (isHost) await deleteRoom(roomId);
-      else await leaveRoom(roomId);
-    } catch (e) {
-      const alreadyGone =
-        e instanceof ApiError && GONE_STATUSES.includes(e.status);
-      if (!alreadyGone) {
-        setLeaveError(
-          e instanceof ApiError ? e.message : "방을 나가지 못했습니다.",
-        );
-        setLeaving(false);
-        return;
-      }
-    }
-    setLeft(true);
-  };
-
-  useEffect(() => {
-    if (!shouldInterceptLeave) return;
-    return navigation.addListener("beforeRemove", (e) => {
-      e.preventDefault();
-      setLeaveRequest({ action: e.data.action });
-    });
-  }, [navigation, shouldInterceptLeave]);
-
-  useEffect(() => {
-    if (left && leaveRequest) navigation.dispatch(leaveRequest.action);
-  }, [navigation, left, leaveRequest]);
-
-  const handleCancelLeave = () => {
-    if (leaving) return;
-    setLeaveRequest(null);
-    setLeaveError(null);
-  };
-
   const handleJoin = async () => {
     if (!roomId || joining) return;
     setJoining(true);
@@ -158,26 +106,13 @@ export default function RoomScreen() {
   };
 
   const getPopUp = () => {
-    if (!mounted) return null;
+    if (!mounted || exitOpen || left) return null;
     if (!roomId) {
       return {
         isOnlyOk: true,
         message: "잘못된 방 주소예요.",
         rightButtonText: "확인",
         onRightButtonClick: handleBack,
-      };
-    }
-    if (leaveRequest) {
-      return {
-        message:
-          leaveError ??
-          (isHost
-            ? "정말로 나가시겠습니까?\n방을 나가면 모두가 굶게돼요😭."
-            : "방을 나가시겠습니까?"),
-        leftButtonText: leaving ? "나가는 중..." : "예",
-        rightButtonText: "아니요",
-        onLeftButtonClick: handleLeaveRoom,
-        onRightButtonClick: handleCancelLeave,
       };
     }
     if (closedReason) {
