@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams, useNavigation } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -19,6 +19,7 @@ import { useRoomSession } from "@/contexts/RoomSessionContext";
 import type { RoomClosedReason } from "@/hooks/useRoom";
 import { ApiError } from "@/lib/api";
 import {
+  startRoomRound,
   deleteRoom,
   joinRoom,
   leaveRoom,
@@ -54,19 +55,52 @@ export default function RoomScreen() {
   const navigation = useNavigation();
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [isAllPicked, setIsAllPicked] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+  const startInProgress = useRef(false);
   const [leaveRequest, setLeaveRequest] = useState<{
     action: Parameters<typeof navigation.dispatch>[0];
   } | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [left, setLeft] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
-  // 정적 HTML에는 방 ID가 없으므로 브라우저에 마운트된 뒤에 화면 내용을 정한다
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   const isHost = room?.my_role === "HOST";
   const shouldInterceptLeave = !!room?.is_member && !closedReason && !left;
+
+  const canStart = Boolean(
+    room?.is_member &&
+    isHost &&
+    room.status === "WAITING" &&
+    room.member_count >= 2 &&
+    (!room.current_round ||
+      room.current_round.status === "CANCELLED"
+    ) && !closedReason &&
+    !left && !leaving && !leaveRequest && !error,
+  );
+
+  const handleStart = async () => {
+    if (!roomId || !canStart || startInProgress.current) return;
+
+    startInProgress.current = true;
+    setStarting(true);
+    setStartError(null);
+
+    try {
+      await startRoomRound(roomId);
+      refresh();
+    } catch (error) {
+      setStartError(
+        error instanceof Error ? error.message : "시작하지 못 했습니다. 다시 시도해 주세요.",
+      );
+      refresh();
+    } finally {
+      startInProgress.current = false;
+      setStarting(false);
+    }
+  };
 
   const handleLeaveRoom = async () => {
     if (!roomId || leaving) return;
@@ -211,7 +245,6 @@ export default function RoomScreen() {
   };
 
   const popUp = getPopUp();
-  const canStart = room?.is_member && room.member_count >= 2;
 
   return (
     <View style={styles.root}>
@@ -226,21 +259,33 @@ export default function RoomScreen() {
           <View style={styles.content}>{renderBody()}</View>
         </ScrollView>
 
-        {room?.is_member && (
+        {room?.is_member && isHost && !closedReason && !left && (
           <View style={styles.bottomLayout}>
+            {startError && (
+              <Text
+                style={styles.startError}
+                accessibilityRole="alert"
+              >
+                {startError}
+              </Text>
+            )}
+
             <Pressable
-              style={[styles.primaryBtn, !canStart && styles.disabled]}
-              onPress={() => console.log("각자 고르러 가기 선택됨")}
-              disabled={!canStart}
+              style={[
+                styles.primaryBtn,
+                (!canStart || starting) && styles.disabled,
+              ]}
+              onPress={handleStart}
+              disabled={!canStart || starting}
+              accessibilityRole="button"
+              accessibilityState={{
+                disabled: !canStart || starting,
+                busy: starting,
+              }}
             >
-              <Text style={styles.primaryBtnText}>각자 고르러 가기</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.secondaryBtn, !isAllPicked && styles.disabled]}
-              onPress={() => console.log("다음 단계로 넘어가기 선택됨")}
-              disabled={!isAllPicked}
-            >
-              <Text style={styles.secondaryBtnText}>다음 단계로 넘어가기</Text>
+              <Text style={styles.primaryBtnText}>
+                {starting ? "시작하는 중…" : "투표하러 가기"}
+              </Text>
             </Pressable>
           </View>
         )}
@@ -421,22 +466,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: Colors.white,
   },
-  secondaryBtn: {
-    borderRadius: 100,
-    borderWidth: 3,
-    borderColor: Colors.textBrown,
-    width: "100%",
-    maxWidth: 348,
-    height: 64,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  secondaryBtnText: {
-    fontFamily: Fonts.bodyBold,
-    fontSize: 20,
-    color: Colors.textBrown,
-  },
   disabled: {
     opacity: 0.5,
+  },
+
+  startError: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 14,
+    color: Colors.errorText,
+    textAlign: "center",
+    maxWidth: 348,
   },
 });
