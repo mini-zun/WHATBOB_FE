@@ -116,7 +116,11 @@ export default function RootLayout() {
   }, [retryCount]);
 
   if (!loaded && !error) {
-    return null;
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <StartupLoadingScreen />
+      </GestureHandlerRootView>
+    );
   }
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
