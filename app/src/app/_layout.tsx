@@ -23,6 +23,7 @@ export default function RootLayout() {
     PretendardBold: require("../../assets/fonts/Pretendard-Bold.otf"),
     PretendardBlack: require("../../assets/fonts/Pretendard-Black.otf"),
     PretendardSemiBold: require("../../assets/fonts/Pretendard-SemiBold.otf"),
+    PretendardRegular: require("../../assets/fonts/Pretendard-Regular.otf"),
     PretendardMedium: require("../../assets/fonts/Pretendard-Medium.otf"),
     BusanDandiMyeongjoM: require("../../assets/fonts/BusanDandiMyeongjoM.otf"),
   });
