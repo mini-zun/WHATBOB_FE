@@ -2,7 +2,7 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Button, Text, View } from "react-native";
+import { Button, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { initializeAuthentication, clearWebSession } from "@/lib/web-auth";
 import { readLogoutRequest } from '@/lib/logout_request';
@@ -13,6 +13,7 @@ import {
   subscribeAuthContextInvalidation,
 } from "@/lib/auth_context";
 import { clearLogoutRequest } from "@/lib/logout_request";
+import StartupLoadingScreen from "@/components/StartupLoadingScreen";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -20,6 +21,7 @@ export default function RootLayout() {
   const [loaded, error] = useFonts({
     Cafe24Ssurround: require("../../assets/fonts/Cafe24Ssurround-v2.0.otf"),
     Cafe24Simplehae: require("../../assets/fonts/Cafe24Simplehae-v2.0.otf"),
+    Cafe24Danjunghae: require("../../assets/fonts/Cafe24Danjunghae-v2.0.otf"),
     PretendardBold: require("../../assets/fonts/Pretendard-Bold.otf"),
     PretendardBlack: require("../../assets/fonts/Pretendard-Black.otf"),
     PretendardSemiBold: require("../../assets/fonts/Pretendard-SemiBold.otf"),
@@ -32,13 +34,13 @@ export default function RootLayout() {
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    if(typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
 
     const checkAuthContext = () => {
-      if(!hasAuthContextChanged()) return;
+      if (!hasAuthContextChanged()) return;
 
       setAuthReady(false);
-      setAuthError("다른 탭에서 계정이 변경되었습니다. 다시 시작해 주세요.", );
+      setAuthError("다른 탭에서 계정이 변경되었습니다. 다시 시작해 주세요.",);
     };
     const unsubscribeInvalidation =
       subscribeAuthContextInvalidation(checkAuthContext);
@@ -51,7 +53,7 @@ export default function RootLayout() {
     document.addEventListener("visibilitychange", checkAuthContext);
     checkAuthContext();
 
-    return() => {
+    return () => {
       unsubscribeInvalidation();
       unsubscribe();
       window.removeEventListener("focus", checkAuthContext);
@@ -80,8 +82,8 @@ export default function RootLayout() {
       if (pendingLogout) {
         try {
           await completeLogout();
-        } catch(error) {
-          if(!(error instanceof LogoutRestartRequiredError)) {
+        } catch (error) {
+          if (!(error instanceof LogoutRestartRequiredError)) {
             throw error;
           }
           await initializeAuthentication();
@@ -93,8 +95,8 @@ export default function RootLayout() {
     };
 
     startAuthentication().then(() => {
-      if(!active) return;
-      if(hasAuthContextChanged()) {
+      if (!active) return;
+      if (hasAuthContextChanged()) {
         setAuthError("다른 탭에서 계정이 변경되었습니다. 다시 시작해 주세요.",);
         return;
       }
@@ -120,7 +122,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       {authReady ? (
         <Stack screenOptions={{ headerShown: false }} />
-      ) : (
+      ) : authError ? (
         <View
           style={{
             flex: 1,
@@ -130,33 +132,26 @@ export default function RootLayout() {
             gap: 16,
           }}
         >
-          {authError ? (
-            <>
-              <Text accessibilityRole="alert">{authError}</Text>
-              <Button
-                title="다시 시도"
-                onPress={() => {
-                  if(
-                    typeof window !== "undefined" &&
-                    hasAuthContextChanged()
-                  ) {
-                    clearWebSession();
-                    clearLogoutRequest();
-                    window.location.replace("/home");
-                    return;
-                  }
-                  setAuthError(null);
-                  setRetryCount((count) => count + 1);
-                }}
-              />
-            </>
-          ) : (
-            <>
-              <ActivityIndicator />
-              <Text>시작하는 중입니다.</Text>
-            </>
-          )}
+          <Text accessibilityRole="alert">{authError}</Text>
+          <Button
+            title="다시 시도"
+            onPress={() => {
+              if (
+                typeof window !== "undefined" &&
+                hasAuthContextChanged()
+              ) {
+                clearWebSession();
+                clearLogoutRequest();
+                window.location.replace("/home");
+                return;
+              }
+              setAuthError(null);
+              setRetryCount((count) => count + 1);
+            }}
+          />
         </View>
+      ) : (
+        <StartupLoadingScreen/>
       )}
     </GestureHandlerRootView>
   );
