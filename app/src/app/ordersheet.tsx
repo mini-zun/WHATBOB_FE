@@ -1,9 +1,12 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Pressable, StyleSheet, Text, View, ScrollView, useWindowDimensions } from "react-native";
+import { Pressable, Text, View, ScrollView, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useEffect, useState, useRef } from "react";
+import { orderSheetStyles as styles } from "@/components/order-sheet/orderSheetStyles";
+import { OrderSheetQuestions } from "@/components/order-sheet/OrderSheetQuestions";
+
 
 import {
     getOrderSheetQuestions,
@@ -17,7 +20,7 @@ import type {
 } from "@/types/order_sheet";
 
 
-import { Colors, Fonts } from "@/constants/theme";
+import { Colors } from "@/constants/theme";
 import { getAuthRestartMessage } from "@/lib/auth_recovery";
 
 
@@ -46,7 +49,6 @@ export default function OrderSheetScreen() {
     const completedFeedback = useRef(new Set<string>());
 
     const availableHeight = height - insets.top - insets.bottom;
-    const scrollRef = useRef<ScrollView>(null);
 
     const questionTopSpacing = Math.max(
         32, Math.min(146, 146 - (852 - availableHeight)),
@@ -97,13 +99,6 @@ export default function OrderSheetScreen() {
             cancelled = true;
         };
     }, [retryCount]);
-
-    useEffect(() => {
-        scrollRef.current?.scrollTo({
-            y: 0,
-            animated: false,
-        });
-    }, [questionIndex]);
 
     const question = questions[questionIndex];
 
@@ -470,300 +465,30 @@ export default function OrderSheetScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.safeArea}>
-            <ScrollView style={styles.scroll}
-                ref={scrollRef}
-                contentContainerStyle={styles.page}
-                showsVerticalScrollIndicator={false}
-                bounces={false}
-            >
-                <View style={styles.header}>
+        <OrderSheetQuestions
+            question={question}
+            questionIndex={questionIndex}
+            totalCount={questions.length}
+            selectedOptionId={selectedOptionId}
+            questionTopSpacing={questionTopSpacing}
+            onBack={handleBack}
+            onAnswer={handleAnswer}
+        >
+            {submitError && (
+                <View style={styles.submitErrorSection}>
+                    <Text style={styles.skipText}>{submitError}</Text>
+
                     <Pressable
-                        onPress={handleBack}
-                        style={styles.backButton}
                         accessibilityRole="button"
-                        accessibilityLabel="뒤로가기"
+                        style={styles.answerButton}
+                        onPress={() => void handleSubmit(answers)}
                     >
-                        <Feather name="arrow-left" size={26} color={Colors.maintext} />
+                        <Text style={styles.answerButtonText}>
+                            추천 다시 요청하기
+                        </Text>
                     </Pressable>
-                    <View style={styles.progressTrack}>
-                        <View style={styles.progressBackground} />
-                        <View style={[styles.progressFill, { width: `${((questionIndex + 1) / questions.length) * 100}%` },
-                        ]}
-                        />
-                    </View>
-
-                    <Text style={styles.progressText}>{questionIndex + 1}/{questions.length}</Text>
                 </View>
-
-                <View
-                    style={[
-                        styles.questionSection,
-                        { paddingTop: questionTopSpacing },
-                    ]}
-                >
-                    <View style={styles.imageCircle}>
-                        <Image
-                            source={require("@/assets/images/whatbob_icon.png")}
-                            contentFit="contain"
-                            style={styles.characterImage}
-                        />
-                    </View>
-
-                    <View style={styles.questionTextBox}>
-                        <Text style={styles.questionText}>{question.question_text}</Text>
-
-                    </View>
-                </View>
-
-                <View style={styles.answerSection}>
-                    {submitError && (
-                        <View style={styles.submitErrorSection}>
-                            <Text style={styles.skipText}>{submitError}</Text>
-                            <Pressable
-                                accessibilityRole="button"
-                                style={styles.answerButton}
-                                onPress={() => void handleSubmit(answers)}
-                            >
-                                <Text style={styles.answerButtonText}>
-                                    추천 다시 요청하기
-                                </Text>
-                            </Pressable>
-                        </View>
-                    )}
-                    <View style={styles.answerButtons}>
-                        {question.options.filter((option) => option.option_id !== "any").map((option) => (
-                            <Pressable key={option.option_id}
-                                style={[
-                                    styles.answerButton,
-                                    selectedOptionId === option.option_id && styles.selectedOption,
-                                ]}
-                                accessibilityRole="button"
-                                accessibilityState={{
-                                    selected: selectedOptionId === option.option_id,
-                                }}
-                                onPress={() => handleAnswer(option.option_id)}
-                            >
-                                <Text style={styles.answerButtonText}>{option.label}</Text>
-                            </Pressable>
-                        ))
-                        }
-                    </View>
-                    {question.options.filter((option) => option.option_id === "any").map((option) => (
-                        <Pressable key={option.option_id}
-                            style={[
-                                styles.skipButton,
-                                selectedOptionId === option.option_id && styles.selectedOption,
-                            ]}
-                            hitSlop={12}
-                            accessibilityRole="button"
-                            accessibilityState={{
-                                selected: selectedOptionId === option.option_id,
-                            }}
-                            onPress={() => handleAnswer(option.option_id)}
-                        >
-                            <Text style={styles.skipText}>{option.label} · 건너뛰기</Text>
-                        </Pressable>
-                    ))}
-                </View>
-            </ScrollView>
-        </SafeAreaView>
+            )}
+        </OrderSheetQuestions>
     );
 }
-
-const styles = StyleSheet.create({
-    selectedOption: {
-        opacity: 0.65,
-    },
-    safeArea: {
-        flex: 1,
-        backgroundColor: Colors.background,
-    },
-    scroll: {
-        flex: 1,
-    },
-    page: {
-        flexGrow: 1,
-        paddingBottom: 32,
-        width: "100%",
-        maxWidth: 430,
-        alignSelf: "center",
-    },
-    statusPage: {
-        justifyContent: "center",
-        alignItems: "center",
-        paddingHorizontal: 24,
-        gap: 20,
-    },
-    completionButton: {
-        width: "100%",
-    },
-    resultPage: {
-        paddingHorizontal: 23,
-        paddingTop: 32,
-    },
-    resultTitle: {
-        fontFamily: Fonts.nonpreferencefood,
-        fontSize: 28.5,
-        lineHeight: 36,
-        color: Colors.textBrown,
-        textAlign: "center",
-    },
-    resultMenuName: {
-        fontFamily: Fonts.nonpreferencefood,
-        fontSize: 30.13,
-        lineHeight: 46,
-        color: Colors.textBrown,
-        textAlign: "center",
-        marginTop: 38,
-    },
-    submitErrorSection: {
-        gap: 12,
-        marginBottom: 20,
-    },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        marginTop: 30,
-        paddingLeft: 30,
-        paddingRight: 21
-    },
-    backButton: {
-        width: 62,
-        height: 62,
-        borderRadius: 31,
-        backgroundColor: Colors.backGrey,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    progressTrack: {
-        flex: 1,
-        height: 10,
-        marginLeft: 10,
-        marginRight: 13,
-        justifyContent: "center",
-    },
-    progressBackground: {
-        position: "absolute",
-        left: 0,
-        right: 0,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: Colors.backGrey
-    },
-    progressFill: {
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: Colors.textBrown,
-    },
-    progressText: {
-        width: 33,
-        height: 26,
-        lineHeight: 26,
-        textAlign: "center",
-        fontFamily: Fonts.bodyDesc,
-        fontSize: 21.32,
-        color: Colors.maintext,
-    },
-    questionSection: {
-        alignItems: "center",
-        paddingHorizontal: 20,
-    },
-    imageCircle: {
-        width: 216,
-        maxWidth: "100%",
-        aspectRatio: 1,
-        borderRadius: 108,
-        backgroundColor: Colors.backGrey,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    questionTextBox: {
-        marginTop: 50,
-        width: "100%",
-        maxWidth: 352,
-        minHeight: 43,
-        justifyContent: "center",
-    },
-    questionText: {
-        fontFamily: Fonts.nonpreferencefood,
-        fontSize: 28.5,
-        lineHeight: 36,
-        color: Colors.textBrown,
-        textAlign: "center",
-    },
-
-    answerSection: {
-        alignSelf: "center",
-        width: "100%",
-        paddingHorizontal: 23,
-        marginTop: 45,
-    },
-    answerButtons: {
-        gap: 16,
-    },
-    answerButton: {
-        minHeight: 64,
-        paddingVertical: 20,
-        paddingHorizontal: 13,
-        borderRadius: 999,
-        backgroundColor: Colors.textBrown,
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8.99,
-    },
-    answerButtonText: {
-        fontFamily: Fonts.bodyBlack,
-        fontSize: 20,
-        lineHeight: 24,
-        color: Colors.white,
-        textAlign: "center",
-    },
-    skipButton: {
-        alignSelf: "center",
-        marginTop: 49,
-        maxWidth: "100%",
-        minHeight: 23,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    skipText: {
-        fontFamily: Fonts.bodyDesc,
-        fontSize: 18.81,
-        lineHeight: 23,
-        color: Colors.textSecondary,
-        textAlign: "center",
-    },
-    characterImage: {
-        width: 107,
-        height: 108,
-        transform: [
-            { translateX: 4.5 },
-            { translateY: -6 },
-        ],
-    },
-
-    recommendationTitle: {
-        fontFamily: Fonts.nonpreferencefood,
-        fontSize: 25.17,
-        lineHeight: 38,
-        color: Colors.textSecondary,
-        textAlign: "center",
-    },
-
-    resultImageCircle: {
-        alignSelf: "center",
-        width: 216,
-        maxWidth: "100%",
-        aspectRatio: 1,
-        borderRadius: 108,
-        backgroundColor: Colors.cardYellow,
-        alignItems: "center",
-        justifyContent: "center",
-        marginTop: 8,
-    },
-
-    resultActions: {
-        marginTop: 54,
-    },
-})

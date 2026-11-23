@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { router, useLocalSearchParams, useNavigation } from "expo-router";
-import { useEffect, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
+import { useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -15,30 +15,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { PopUpBox } from "@/components/home/PopUpMessage";
 import { Colors, Fonts } from "@/constants/theme";
-import { useRoom, type RoomClosedReason } from "@/hooks/useRoom";
+import { useRoomSession } from "@/contexts/RoomSessionContext";
 import { ApiError } from "@/lib/api";
 import {
-  deleteRoom,
+  startRoomRound,
   joinRoom,
-  leaveRoom,
   parseRoomId,
   type RoomDetail,
   type RoomMember,
 } from "@/lib/rooms";
-
-const handleBack = () => {
-  if (router.canGoBack()) router.back();
-  else router.replace("/pick_with_friend");
-};
-
-const GONE_STATUSES = [404, 409, 410];
-
-const CLOSED_MESSAGES: Record<RoomClosedReason, string> = {
-  HOST_LEFT: "방장이 방을 나가서\n방이 사라졌어요.",
-  HOST_DISCONNECTED: "방장의 연결이 끊겨서\n방이 사라졌어요.",
-  EXPIRED: "방을 만든 지 1시간이 지나\n방이 사라졌어요.",
-  UNKNOWN: "방이 사라졌어요.",
-};
 
 function getErrorTitle(error: ApiError | null) {
   if (error?.status === 404) return "존재하지 않는 방이에요.";
@@ -49,61 +34,51 @@ function getErrorTitle(error: ApiError | null) {
 export default function RoomScreen() {
   const params = useLocalSearchParams<{ roomId: string }>();
   const roomId = parseRoomId(params.roomId ?? "") ?? undefined;
-  const { room, error, loading, refresh, closedReason } = useRoom(roomId);
-  const navigation = useNavigation();
+  const {
+    room, error, loading, refresh, closedReason,
+    requestExit, exitOpen, leaving, left,
+  } = useRoomSession();
+  const handleBack = requestExit;
   const [joining, setJoining] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
-  const [isAllPicked, setIsAllPicked] = useState(false);
-  const [leaveRequest, setLeaveRequest] = useState<{
-    action: Parameters<typeof navigation.dispatch>[0];
-  } | null>(null);
-  const [leaving, setLeaving] = useState(false);
-  const [left, setLeft] = useState(false);
-  const [leaveError, setLeaveError] = useState<string | null>(null);
-  // 정적 HTML에는 방 ID가 없으므로 브라우저에 마운트된 뒤에 화면 내용을 정한다
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+  const startInProgress = useRef(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   const isHost = room?.my_role === "HOST";
-  const shouldInterceptLeave = !!room?.is_member && !closedReason && !left;
 
-  const handleLeaveRoom = async () => {
-    if (!roomId || leaving) return;
-    setLeaving(true);
-    setLeaveError(null);
+  const canStart = Boolean(
+    room?.is_member &&
+    isHost &&
+    room.status === "WAITING" &&
+    room.member_count >= 2 &&
+    (!room.current_round ||
+      room.current_round.status === "CANCELLED"
+    ) && !closedReason &&
+    !left && !leaving && !exitOpen && !error,
+  );
+
+  const handleStart = async () => {
+    if (!roomId || !canStart || startInProgress.current) return;
+
+    startInProgress.current = true;
+    setStarting(true);
+    setStartError(null);
+
     try {
-      if (isHost) await deleteRoom(roomId);
-      else await leaveRoom(roomId);
-    } catch (e) {
-      const alreadyGone =
-        e instanceof ApiError && GONE_STATUSES.includes(e.status);
-      if (!alreadyGone) {
-        setLeaveError(
-          e instanceof ApiError ? e.message : "방을 나가지 못했습니다.",
-        );
-        setLeaving(false);
-        return;
-      }
+      await startRoomRound(roomId);
+      refresh();
+    } catch (error) {
+      setStartError(
+        error instanceof Error ? error.message : "시작하지 못 했습니다. 다시 시도해 주세요.",
+      );
+      refresh();
+    } finally {
+      startInProgress.current = false;
+      setStarting(false);
     }
-    setLeft(true);
-  };
-
-  useEffect(() => {
-    if (!shouldInterceptLeave) return;
-    return navigation.addListener("beforeRemove", (e) => {
-      e.preventDefault();
-      setLeaveRequest({ action: e.data.action });
-    });
-  }, [navigation, shouldInterceptLeave]);
-
-  useEffect(() => {
-    if (left && leaveRequest) navigation.dispatch(leaveRequest.action);
-  }, [navigation, left, leaveRequest]);
-
-  const handleCancelLeave = () => {
-    if (leaving) return;
-    setLeaveRequest(null);
-    setLeaveError(null);
   };
 
   const handleJoin = async () => {
@@ -123,32 +98,11 @@ export default function RoomScreen() {
   };
 
   const getPopUp = () => {
-    if (!mounted) return null;
+    if (!mounted || exitOpen || left || closedReason || error) return null;
     if (!roomId) {
       return {
         isOnlyOk: true,
         message: "잘못된 방 주소예요.",
-        rightButtonText: "확인",
-        onRightButtonClick: handleBack,
-      };
-    }
-    if (leaveRequest) {
-      return {
-        message:
-          leaveError ??
-          (isHost
-            ? "정말로 나가시겠습니까?\n방을 나가면 모두가 굶게돼요😭."
-            : "방을 나가시겠습니까?"),
-        leftButtonText: leaving ? "나가는 중..." : "예",
-        rightButtonText: "아니요",
-        onLeftButtonClick: handleLeaveRoom,
-        onRightButtonClick: handleCancelLeave,
-      };
-    }
-    if (closedReason) {
-      return {
-        isOnlyOk: true,
-        message: CLOSED_MESSAGES[closedReason] ?? CLOSED_MESSAGES.UNKNOWN,
         rightButtonText: "확인",
         onRightButtonClick: handleBack,
       };
@@ -210,7 +164,6 @@ export default function RoomScreen() {
   };
 
   const popUp = getPopUp();
-  const canStart = room?.is_member && room.member_count >= 2;
 
   return (
     <View style={styles.root}>
@@ -225,21 +178,33 @@ export default function RoomScreen() {
           <View style={styles.content}>{renderBody()}</View>
         </ScrollView>
 
-        {room?.is_member && (
+        {room?.is_member && isHost && !closedReason && !left && (
           <View style={styles.bottomLayout}>
+            {startError && (
+              <Text
+                style={styles.startError}
+                accessibilityRole="alert"
+              >
+                {startError}
+              </Text>
+            )}
+
             <Pressable
-              style={[styles.primaryBtn, !canStart && styles.disabled]}
-              onPress={() => console.log("각자 고르러 가기 선택됨")}
-              disabled={!canStart}
+              style={[
+                styles.primaryBtn,
+                (!canStart || starting) && styles.disabled,
+              ]}
+              onPress={handleStart}
+              disabled={!canStart || starting}
+              accessibilityRole="button"
+              accessibilityState={{
+                disabled: !canStart || starting,
+                busy: starting,
+              }}
             >
-              <Text style={styles.primaryBtnText}>각자 고르러 가기</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.secondaryBtn, !isAllPicked && styles.disabled]}
-              onPress={() => console.log("다음 단계로 넘어가기 선택됨")}
-              disabled={!isAllPicked}
-            >
-              <Text style={styles.secondaryBtnText}>다음 단계로 넘어가기</Text>
+              <Text style={styles.primaryBtnText}>
+                {starting ? "시작하는 중…" : "주문서 작성하기"}
+              </Text>
             </Pressable>
           </View>
         )}
@@ -420,22 +385,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: Colors.white,
   },
-  secondaryBtn: {
-    borderRadius: 100,
-    borderWidth: 3,
-    borderColor: Colors.textBrown,
-    width: "100%",
-    maxWidth: 348,
-    height: 64,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  secondaryBtnText: {
-    fontFamily: Fonts.bodyBold,
-    fontSize: 20,
-    color: Colors.textBrown,
-  },
   disabled: {
     opacity: 0.5,
+  },
+
+  startError: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 14,
+    color: Colors.errorText,
+    textAlign: "center",
+    maxWidth: 348,
   },
 });
