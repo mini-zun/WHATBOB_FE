@@ -10,6 +10,7 @@ import Animated, {
   withTiming,
   withSequence,
   withRepeat,
+  withDelay,
 } from "react-native-reanimated";
 
 import { Colors, Fonts } from "@/constants/theme";
@@ -20,6 +21,18 @@ import { scheduleOnRN } from "react-native-worklets";
 import { getRandomMenu, type RandomMenu } from "@/lib/random_menu";
 import { getAuthRestartMessage } from "@/lib/auth_recovery";
 
+const twinkle = (repeats: number) =>
+  withSequence(
+    withTiming(1, { duration: 150 }),
+    withRepeat(
+      withSequence(
+        withTiming(0.5, { duration: 200 }),
+        withTiming(1, { duration: 200 }),
+      ),
+      repeats,
+    ),
+    withTiming(0, { duration: 300 }),
+  );
 
 const handleBack = () => {
   if (router.canGoBack()) router.back();
@@ -35,11 +48,14 @@ export default function PickWithFriendScreen() {
   const [menu, setMenu] = useState<RandomMenu | null>(null);
   const [menuError, setMenuError] = useState<string | null>(null);
   const [seenFoodList, setSeenFoodList] = useState<string[]>([]);
-  const [authRestartMessage, setAuthRestartMessage] = useState<string | null>(null);
-
+  const [authRestartMessage, setAuthRestartMessage] = useState<string | null>(
+    null,
+  );
 
   const rotation = useSharedValue(0);
   const translateY = useSharedValue(0);
+  const starLeft = useSharedValue(0);
+  const starRight = useSharedValue(0);
 
   const openCap = () => {
     setTopOpen(true);
@@ -61,10 +77,10 @@ export default function PickWithFriendScreen() {
       }
 
       setMenuError(
-        e instanceof Error ? e.message : "메뉴를 불러오지 못했어요."
+        e instanceof Error ? e.message : "메뉴를 불러오지 못했어요.",
       );
     }
-  }
+  };
 
   const startAnimation = () => {
     loadMenu();
@@ -72,6 +88,10 @@ export default function PickWithFriendScreen() {
     setTopOpen(false);
     setFoodShow(false);
     translateY.value = 0;
+    starLeft.value = 0;
+    starRight.value = 0;
+    starLeft.value = twinkle(5);
+    starRight.value = withDelay(200, twinkle(4));
     rotation.value = withSequence(
       withTiming(10, { duration: 100 }),
       withRepeat(withTiming(-10, { duration: 200 }), 10, true),
@@ -97,6 +117,23 @@ export default function PickWithFriendScreen() {
     };
   });
 
+  const animatedStarLeft = useAnimatedStyle(() => ({
+    opacity: starLeft.value,
+    transform: [
+      { scale: interpolate(starLeft.value, [0, 1], [0.4, 1]) },
+      { rotate: `${interpolate(starLeft.value, [0, 1], [-20, 0])}deg` },
+    ],
+  }));
+
+  const animatedStarRight = useAnimatedStyle(() => ({
+    opacity: starRight.value,
+    transform: [
+      { scaleX: -1 },
+      { scale: interpolate(starRight.value, [0, 1], [0.4, 1]) },
+      { rotate: `${interpolate(starRight.value, [0, 1], [-20, 0])}deg` },
+    ],
+  }));
+
   const animatedCap = useAnimatedStyle(() => {
     return {
       opacity: interpolate(translateY.value, [0, -100], [1, 0]),
@@ -116,10 +153,7 @@ export default function PickWithFriendScreen() {
             gap: 24,
           }}
         >
-          <Text
-            accessibilityRole="alert"
-            style={{ textAlign: "center" }}
-          >
+          <Text accessibilityRole="alert" style={{ textAlign: "center" }}>
             {authRestartMessage}
           </Text>
 
@@ -132,9 +166,7 @@ export default function PickWithFriendScreen() {
               }
             }}
           >
-            <Text style={styles.pickButtonText}>
-              인증 다시 시작
-            </Text>
+            <Text style={styles.pickButtonText}>인증 다시 시작</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -163,6 +195,26 @@ export default function PickWithFriendScreen() {
                 source={require("@/assets/images/random_dish.png")}
                 contentFit="contain"
                 style={styles.dish}
+              />
+            </Animated.View>
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.star, styles.starLeft, animatedStarLeft]}
+            >
+              <Image
+                source={require("@/assets/images/random_dish_star.png")}
+                contentFit="contain"
+                style={styles.starImage}
+              />
+            </Animated.View>
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.star, styles.starRight, animatedStarRight]}
+            >
+              <Image
+                source={require("@/assets/images/random_dish_star.png")}
+                contentFit="contain"
+                style={styles.starImage}
               />
             </Animated.View>
             <Image
@@ -278,6 +330,21 @@ const styles = StyleSheet.create({
   dish: {
     width: 284,
     height: 202,
+  },
+  star: {
+    position: "absolute",
+    top: 8,
+    opacity: 0,
+  },
+  starLeft: {
+    left: 5,
+  },
+  starRight: {
+    right: 10,
+  },
+  starImage: {
+    width: 57,
+    height: 63,
   },
   resultImage: {
     width: 284,
