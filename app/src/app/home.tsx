@@ -10,12 +10,37 @@ import { Colors, Fonts } from "@/constants/theme";
 import { Feather } from "@expo/vector-icons";
 import { MenuCarousel } from "@/components/home/MenuCarousel";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SideMenuDrawer } from "@/components/home/SideMenuDrawer";
+import { getPopularFood, type PopularFood } from "@/lib/food_popular";
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [popularMenus, setPopularMenus] = useState<PopularFood[]>([]);
+  const [popularLoading, setPopularLoading] = useState(true);
+  const [popularError, setPopularError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    getPopularFood(controller.signal)
+      .then((data) => {
+        setPopularMenus(data.items);
+        setPopularError(null);
+      })
+      .catch((e) => {
+        if (controller.signal.aborted) return;
+        setPopularError(
+          e instanceof Error ? e.message : "인기 메뉴를 불러오지 못했어요.",
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setPopularLoading(false);
+      });
+
+    return () => controller.abort();
+  }, []);
 
   const handleToPickWithFriend = () => {
     router.push("/pick_with_friend");
@@ -102,38 +127,76 @@ export default function HomeScreen() {
                 contentContainerStyle={styles.menuContent}
                 showsHorizontalScrollIndicator={false}
               >
-                <View style={styles.menuBg}></View>
-                <View style={styles.menuBg}></View>
-                <View style={styles.menuBg}></View>
-                <View style={styles.menuBg}></View>
+                <MenuBox menu={"비빔밥"} />
+                <MenuBox menu={"쌀국수"} />
+                <MenuBox menu={"뚝배기"} />
+                <MenuBox menu={"김치볶음밥"} />
               </ScrollView>
               <View style={styles.menusTitleView}>
                 <Text style={styles.smallMenuText}>요즘 인기 메뉴</Text>
-                <Pressable>
-                  <Image
-                    source={require("@/assets/images/plus_button.png")}
-                    contentFit="contain"
-                    style={styles.plusButton}
-                  />
-                </Pressable>
               </View>
-              <ScrollView
-                horizontal
-                style={styles.menuList}
-                contentContainerStyle={styles.menuContent}
-                showsHorizontalScrollIndicator={false}
-              >
-                <View style={styles.menuBg}></View>
-                <View style={styles.menuBg}></View>
-                <View style={styles.menuBg}></View>
-                <View style={styles.menuBg}></View>
-              </ScrollView>
+              {popularLoading ? (
+                <Text style={styles.menuStatusText}>불러오는 중...</Text>
+              ) : popularError ? (
+                <Text style={styles.menuStatusText}>{popularError}</Text>
+              ) : popularMenus.length === 0 ? (
+                <Text style={styles.menuStatusText}>
+                  아직 인기 메뉴가 없어요.
+                </Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  style={styles.menuList}
+                  contentContainerStyle={styles.menuContent}
+                  showsHorizontalScrollIndicator={false}
+                >
+                  {popularMenus.map((item) => (
+                    <MenuBox
+                      key={item.food_kind_id}
+                      menu={item.name}
+                      image={item.image_url}
+                    />
+                  ))}
+                </ScrollView>
+              )}
             </View>
           </View>
         </ScrollView>
       </SafeAreaView>
       <SideMenuDrawer visible={menuOpen} onClose={() => setMenuOpen(false)} />
     </View>
+  );
+}
+
+type MenuBoxProps = {
+  menu: string;
+  image?: string;
+};
+
+function MenuBox({ menu, image }: MenuBoxProps) {
+  const [aspectRatio, setAspectRatio] = useState(1);
+
+  return (
+    <>
+      <View style={styles.menuBg}>
+        {image ? (
+          <Image
+            source={{ uri: image }}
+            contentFit="contain"
+            style={[styles.menuImage, { aspectRatio }]}
+            onLoad={(e) => {
+              const { width, height: imgHeight } = e.source;
+              if (width && imgHeight) {
+                setAspectRatio(width / imgHeight);
+              }
+            }}
+          />
+        ) : null}
+        <Text style={styles.menuText} numberOfLines={1}>
+          {menu}
+        </Text>
+      </View>
+    </>
   );
 }
 
@@ -254,6 +317,24 @@ const styles = StyleSheet.create({
     height: 77,
     borderRadius: 20,
     backgroundColor: Colors.backOrange,
+    marginBottom: 14,
+    paddingBottom: 2,
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 4,
+  },
+  menuText: {
+    fontFamily: Fonts.bodyDesc,
+    fontSize: 10,
+  },
+  menuImage: {
+    height: 45,
+  },
+  menuStatusText: {
+    fontFamily: Fonts.bodyDesc,
+    fontSize: 12,
+    color: Colors.textBrown,
+    alignSelf: "flex-start",
     marginBottom: 14,
   },
   menusTitleView: {
