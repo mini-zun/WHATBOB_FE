@@ -203,7 +203,7 @@ export default function RoomScreen() {
               }}
             >
               <Text style={styles.primaryBtnText}>
-                {starting ? "시작하는 중…" : "투표하러 가기"}
+                {starting ? "시작하는 중…" : "주문서 작성하기"}
               </Text>
             </Pressable>
           </View>
