@@ -16,7 +16,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { PopUpBox } from "@/components/home/PopUpMessage";
 import { Colors, Fonts } from "@/constants/theme";
 import { useRoomSession } from "@/contexts/RoomSessionContext";
-import type { RoomClosedReason } from "@/hooks/useRoom";
 import { ApiError } from "@/lib/api";
 import {
   startRoomRound,
@@ -25,13 +24,6 @@ import {
   type RoomDetail,
   type RoomMember,
 } from "@/lib/rooms";
-
-const CLOSED_MESSAGES: Record<RoomClosedReason, string> = {
-  HOST_LEFT: "방장이 방을 나가서\n방이 사라졌어요.",
-  HOST_DISCONNECTED: "방장의 연결이 끊겨서\n방이 사라졌어요.",
-  EXPIRED: "방을 만든 지 1시간이 지나\n방이 사라졌어요.",
-  UNKNOWN: "방이 사라졌어요.",
-};
 
 function getErrorTitle(error: ApiError | null) {
   if (error?.status === 404) return "존재하지 않는 방이에요.";
@@ -106,19 +98,11 @@ export default function RoomScreen() {
   };
 
   const getPopUp = () => {
-    if (!mounted || exitOpen || left) return null;
+    if (!mounted || exitOpen || left || closedReason || error) return null;
     if (!roomId) {
       return {
         isOnlyOk: true,
         message: "잘못된 방 주소예요.",
-        rightButtonText: "확인",
-        onRightButtonClick: handleBack,
-      };
-    }
-    if (closedReason) {
-      return {
-        isOnlyOk: true,
-        message: CLOSED_MESSAGES[closedReason] ?? CLOSED_MESSAGES.UNKNOWN,
         rightButtonText: "확인",
         onRightButtonClick: handleBack,
       };

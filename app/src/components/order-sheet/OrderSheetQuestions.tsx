@@ -23,6 +23,7 @@ type Props = {
   onBack: () => void;
   onAnswer: (optionId: string) => void;
   children?: ReactNode;
+  disabled?: boolean;
 };
 
 export function OrderSheetQuestions({
@@ -34,6 +35,7 @@ export function OrderSheetQuestions({
   onBack,
   onAnswer,
   children,
+  disabled = false,
 }: Props) {
   const scrollRef = useRef<ScrollView>(null);
 
@@ -103,7 +105,9 @@ export function OrderSheetQuestions({
                                 accessibilityRole="button"
                                 accessibilityState={{
                                     selected: selectedOptionId === option.option_id,
+                                    disabled,
                                 }}
+                                disabled={disabled}
                                 onPress={() => onAnswer(option.option_id)}
                             >
                                 <Text style={styles.answerButtonText}>{option.label}</Text>
@@ -121,7 +125,9 @@ export function OrderSheetQuestions({
                             accessibilityRole="button"
                             accessibilityState={{
                                 selected: selectedOptionId === option.option_id,
+                                disabled,
                             }}
+                            disabled={disabled}
                             onPress={() => onAnswer(option.option_id)}
                         >
                             <Text style={styles.skipText}>{option.label} · 건너뛰기</Text>

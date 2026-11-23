@@ -76,8 +76,10 @@ export function RoomSessionProvider({ roomId, children }: Props) {
     setLeaveError(null);
 
     try {
-      if (isHost) await deleteRoom(roomId);
-      else await leaveRoom(roomId);
+      if (!session.closedReason && session.error?.status !== 403) {
+        if (isHost) await deleteRoom(roomId);
+        else await leaveRoom(roomId);
+      }
     } catch (error) {
       const alreadyGone = error instanceof ApiError &&
         (error.status === 404 || error.status === 410);

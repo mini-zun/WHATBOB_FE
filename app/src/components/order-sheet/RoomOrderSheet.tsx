@@ -8,7 +8,7 @@ import {
 
 import { SafeAreaView, useSafeAreaInsets} from "react-native-safe-area-context";
 
-import { getRoomQuestions } from "@/lib/rooms";
+import { getRoomQuestions, type RoomRoundStatus } from "@/lib/rooms";
 import type { OrderSheetAnswer, OrderSheetQuestion } from "@/types/order_sheet";
 import { OrderSheetQuestions } from "./OrderSheetQuestions";
 import { orderSheetStyles as styles } from "./orderSheetStyles";
@@ -16,12 +16,16 @@ import { orderSheetStyles as styles } from "./orderSheetStyles";
 type Props = {
   roomId: string;
   roundId: number;
+  roundStatus: RoomRoundStatus;
+  onRefreshRoom: () => void;
   onExit: () => void;
 };
 
 export function RoomOrderSheet({
   roomId,
   roundId,
+  roundStatus,
+  onRefreshRoom,
   onExit,
 }: Props) {
   const { height } = useWindowDimensions();
@@ -62,14 +66,18 @@ export function RoomOrderSheet({
         }
 
         if (data.has_submitted) {
+          onRefreshRoom();
           setNotice("이미 주문서를 제출했습니다.");
           return;
         }
 
-        if (data.round_status !== "ANSWERING") {
+        if (data.round_status !== "ANSWERING" && data.round_status !== "ANSWERING_PAUSED") {
+          onRefreshRoom();
           setNotice("현재 주문서에 답변할 수 있는 단계가 아닙니다.");
           return;
         }
+
+        if (data.round_status === "ANSWERING_PAUSED") onRefreshRoom();
 
         if (!Array.isArray(data.questions) || data.questions.length === 0) {
           throw new Error("표시할 질문이 없습니다.");
@@ -81,6 +89,7 @@ export function RoomOrderSheet({
       } catch (error) {
         if (controller.signal.aborted) return;
 
+        onRefreshRoom();
         setError(
           error instanceof Error
             ? error.message
@@ -96,7 +105,7 @@ export function RoomOrderSheet({
     void loadQuestions();
 
     return () => controller.abort();
-  }, [roomId, roundId, retryCount]);
+  }, [roomId, roundId, retryCount, onRefreshRoom]);
 
   const question = questions[questionIndex];
 
@@ -105,7 +114,7 @@ export function RoomOrderSheet({
   )?.option_id;
 
   const handleAnswer = (optionId: string) => {
-    if (!question) return;
+    if (!question || roundStatus !== "ANSWERING") return;
 
     setAnswers((previous) => [
       ...previous.filter(
@@ -118,7 +127,7 @@ export function RoomOrderSheet({
     ]);
 
     if (questionIndex < questions.length - 1) {
-      setQuestionIndex((previous) => previous + 1);
+      setQuestionIndex(questionIndex + 1);
     }
   };
 
@@ -173,7 +182,13 @@ export function RoomOrderSheet({
       questionTopSpacing={questionTopSpacing}
       onBack={handleBack}
       onAnswer={handleAnswer}
+      disabled={roundStatus !== "ANSWERING"}
     >
+      {roundStatus === "ANSWERING_PAUSED" && (
+        <Text style={styles.skipText} accessibilityRole="alert">
+          참여자 퇴장으로 잠시 멈췄어요. 방장의 결정을 기다려 주세요.
+        </Text>
+      )}
       {isLastQuestion && selectedOptionId !== undefined && (
         <Text style={styles.skipText}>
           제출 기능 준비 중
@@ -181,4 +196,4 @@ export function RoomOrderSheet({
       )}
     </OrderSheetQuestions>
   );
-}   
+}

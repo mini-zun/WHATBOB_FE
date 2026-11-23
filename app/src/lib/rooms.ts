@@ -115,6 +115,7 @@ export type RoomSocketMessage =
   | { type: "connection.ready"; room_id: string; user_id: number }
   | {
     type: "room.updated";
+    state_version?: number;
     room_id: string;
     reason: string;
     user_id: number;
