@@ -221,7 +221,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
             </Text>
             {isKakaoLinked && (
               <Image
-                source={require("@/assets/images/kakao_login_kr_small.png")}
+                source={require("@/assets/images/kakao_icon.png")}
                 contentFit="contain"
                 style={styles.kakaoLogo}
                 accessible
