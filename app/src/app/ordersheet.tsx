@@ -12,6 +12,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+import { ScrollView as GestureScrollView } from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import { useEffect, useState, useRef } from "react";
 import { orderSheetStyles as styles } from "@/components/order-sheet/orderSheetStyles";
@@ -211,10 +212,17 @@ export default function OrderSheetScreen() {
     setFeedbackError(null);
 
     try {
-      await submitRecommendationFeedback(recommendation.recommendation_id, {
-        selected_menu_id: null,
-        is_satisfied: false,
-      });
+      for (const menu of recommendation.recommended_menus) {
+        const feedbackKey = `${recommendation.recommendation_id}:${menu.menu_id}`;
+        if (completedFeedback.current.has(feedbackKey)) continue;
+
+        await submitRecommendationFeedback(recommendation.recommendation_id, {
+          selected_menu_id: menu.menu_id,
+          is_satisfied: false,
+        });
+
+        completedFeedback.current.add(feedbackKey);
+      }
 
       router.replace("/home");
     } catch (error) {
@@ -398,13 +406,21 @@ export default function OrderSheetScreen() {
           <Text style={resultStyles.headerTitle}>오늘의 메뉴는?</Text>
         </View>
 
-        <View style={resultStyles.body}>
+        <GestureScrollView
+          style={resultStyles.scroll}
+          contentContainerStyle={resultStyles.middle}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
           <FoodResultCarousel
             key={recommendation.recommendation_id}
             menus={recommendation.recommended_menus}
             onIndexChange={setRecommendationIndex}
+            disabled={isFeedbackSubmitting}
           />
+        </GestureScrollView>
 
+        <View style={resultStyles.footer}>
           {feedbackError && (
             <Text style={styles.skipText}>{feedbackError}</Text>
           )}
@@ -483,19 +499,31 @@ const resultStyles = StyleSheet.create({
     fontSize: 26,
     color: Colors.maintext,
   },
-  body: {
+  scroll: {
     flex: 1,
+  },
+  middle: {
+    flexGrow: 1,
     width: "100%",
     maxWidth: 430,
     alignSelf: "center",
-    paddingTop: 110,
     paddingHorizontal: 23,
+    paddingVertical: 16,
     alignItems: "center",
+    justifyContent: "center",
+  },
+  footer: {
+    width: "100%",
+    maxWidth: 430,
+    alignSelf: "center",
+    paddingHorizontal: 23,
+    paddingBottom: 24,
+    alignItems: "center",
+    gap: 8,
   },
   decideButton: {
     width: "100%",
     height: 64,
-    marginTop: 84,
     borderRadius: 32,
     backgroundColor: Colors.textBrown,
     alignItems: "center",

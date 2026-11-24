@@ -187,6 +187,7 @@ type Props = {
   initialIndex?: number;
   onIndexChange?: (index: number) => void;
   getImageSource?: (menu: RecommendedMenu) => ImageSource | number;
+  disabled?: boolean;
 };
 
 export function FoodResultCarousel({
@@ -194,6 +195,7 @@ export function FoodResultCarousel({
   initialIndex = 0,
   onIndexChange,
   getImageSource,
+  disabled = false,
 }: Props) {
   const n = menus.length;
   const loop = n >= 3;
@@ -214,7 +216,7 @@ export function FoodResultCarousel({
   );
 
   const moveBy = (delta: number) => {
-    if (delta === 0) return;
+    if (delta === 0 || disabled) return;
     const raw = target.get() + delta;
     const next = loop ? raw : Math.min(Math.max(raw, 0), n - 1);
     target.set(next);
@@ -223,7 +225,7 @@ export function FoodResultCarousel({
   };
 
   const pan = Gesture.Pan()
-    .enabled(n > 1)
+    .enabled(n > 1 && !disabled)
     .activeOffsetX([-10, 10])
     .failOffsetY([-10, 10])
     .onStart(() => {
@@ -251,7 +253,10 @@ export function FoodResultCarousel({
   if (n === 0) return null;
 
   return (
-    <View style={styles.root}>
+    <View
+      style={[styles.root, disabled && styles.noTouch]}
+      aria-disabled={disabled}
+    >
       <GestureDetector gesture={pan}>
         <View style={styles.stage}>
           {menus.map((menu, i) => (
@@ -284,6 +289,7 @@ export function FoodResultCarousel({
               role="button"
               aria-label={`${i + 1}번째 메뉴: ${menu.name}`}
               aria-selected={i === active}
+              disabled={disabled}
               hitSlop={7}
               onPress={() => moveBy(loop ? wrap(i - active, n) : i - active)}
             >
