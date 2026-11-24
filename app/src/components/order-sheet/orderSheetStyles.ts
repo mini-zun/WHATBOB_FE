@@ -25,16 +25,6 @@ export const orderSheetStyles = StyleSheet.create({
         paddingHorizontal: 24,
         gap: 20,
     },
-    completionButton: {
-        width: "100%",
-    },
-    resultTitle: {
-        fontFamily: Fonts.nonpreferencefood,
-        fontSize: 28.5,
-        lineHeight: 36,
-        color: Colors.textBrown,
-        textAlign: "center",
-    },
     submitErrorSection: {
         gap: 12,
         marginBottom: 20,
