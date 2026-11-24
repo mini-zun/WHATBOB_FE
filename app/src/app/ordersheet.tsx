@@ -47,7 +47,7 @@ export default function OrderSheetScreen() {
     const [authRestartMessage, setAuthRestartMessage] = useState<string | null>(null);
 
     const feedbackInProgress = useRef(false);
-    const completedFeedback = useRef(new Set<string>());
+    const completedFeedback = useRef(new Map<string, boolean>());
 
     const availableHeight = height - insets.top - insets.bottom;
 
@@ -201,47 +201,32 @@ export default function OrderSheetScreen() {
 
     const handleFeedback = async (isSatisfied: boolean) => {
         if (!recommendation || !currentMenu || isAccepted) return;
-        if(feedbackInProgress.current) return;
-        const feedbackKey = `${recommendation.recommendation_id}:${currentMenu.menu_id}:${isSatisfied}`;
-
-        if (
-            completedFeedback.current.has(feedbackKey)
-        ) {
-            if(isSatisfied) {
-                setFeedbackError(null);
-                setIsAccepted(true);
-            }
-            return;
-        }
+        if (feedbackInProgress.current) return;
+        const feedbackKey = `${recommendation.recommendation_id}:${currentMenu.menu_id}`;
 
         feedbackInProgress.current = true;
         setIsFeedbackSubmitting(true);
         setFeedbackError(null);
 
         try {
-            await submitRecommendationFeedback(
-                recommendation.recommendation_id,
-                {
+            const previousFeedback = completedFeedback.current.get(feedbackKey);
+            if (previousFeedback !== isSatisfied) {
+                await submitRecommendationFeedback(
+                    recommendation.recommendation_id, {
                     selected_menu_id: currentMenu.menu_id,
                     is_satisfied: isSatisfied,
                 },
-            );
-
-            completedFeedback.current.add(feedbackKey);
-
+                );
+                completedFeedback.current.set(feedbackKey, isSatisfied);
+            }
             if (isSatisfied) {
                 setIsAccepted(true);
                 return;
             }
-
-            if (
-                recommendationIndex >=
-                recommendation.recommended_menus.length - 1
-            ) {
+            if (recommendationIndex >= recommendation.recommended_menus.length - 1) {
                 router.replace("/home");
                 return;
             }
-
             setRecommendationIndex(recommendationIndex + 1);
         } catch (error) {
             const restartMessage = getAuthRestartMessage(error);
@@ -338,8 +323,8 @@ export default function OrderSheetScreen() {
     if (recommendation && currentMenu && isAccepted) {
         return (
             <ConfirmedMenuScreen
-            menu={currentMenu}
-            onBack={() => setIsAccepted(false)}
+                menu={currentMenu}
+                onBack={() => setIsAccepted(false)}
             />
         );
     }
