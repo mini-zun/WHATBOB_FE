@@ -197,11 +197,6 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         style={[styles.panel]}
         pointerEvents={logoutOpen ? "none" : "auto"}
       >
-        <ScrollView
-          style={styles.menuScroll}
-          contentContainerStyle={styles.menuScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
         <View style={[
           styles.profileBack,
           isKakaoLinked && { marginBottom: 0 },
@@ -252,59 +247,63 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           <Text style={styles.profileDesc}>오늘도 맛있는 하루 되세요!</Text>
         </View>
 
-        {isKakaoLinked && (
-          <View style={styles.kakaoCard}>
-            <Image
-              source={require("@/assets/images/kakao_icon.png")}
-              contentFit="contain"
-              style={styles.kakaoLogo}
-              accessible={false}
-            />
-            <View>
-              <Text style={styles.kakaoAccountTitle}>카카오 계정</Text>
-              <Text style={styles.kakaoAccountStatus}>연결됨</Text>
+        <ScrollView
+          style={styles.menuScroll}
+          contentContainerStyle={styles.menuScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {isKakaoLinked && (
+            <View style={styles.kakaoCard}>
+              <Image
+                source={require("@/assets/images/kakao_icon.png")}
+                contentFit="contain"
+                style={styles.kakaoLogo}
+                accessible={false}
+              />
+              <View>
+                <Text style={styles.kakaoAccountTitle}>카카오 계정</Text>
+                <Text style={styles.kakaoAccountStatus}>연결됨</Text>
+              </View>
             </View>
-          </View>
-        )}
-        <Text style={styles.menuTitle}>나의 활동</Text>
-        <View style={styles.menuStart} />
-        <MenuItem
-          menuTitle="못 먹는 음식 수정"
-          menuImage={require("@/assets/images/menu_non_preference.png")}
-          onPress={handleToNonPreferenceFood}
-        />
-        <MenuItem
-          menuTitle="기록 모아보기"
-          menuImage={require("@/assets/images/history.png")}
-          onPress={handleToFoodHistory}
-        />
-
-        {canLinkKakao && (
+          )}
+          <Text style={styles.menuTitle}>나의 활동</Text>
+          <View style={styles.menuStart} />
           <MenuItem
-            menuTitle="카카오 계정 연결"
-            menuIcon="link"
-            menuIconColor="darkYellow"
-            onPress={handleToKakaoLink}
+            menuTitle="못 먹는 음식 수정"
+            menuImage={require("@/assets/images/menu_non_preference.png")}
+            onPress={handleToNonPreferenceFood}
           />
-        )}
-        <View style={styles.menuEnd} />
+          <MenuItem
+            menuTitle="기록 모아보기"
+            menuImage={require("@/assets/images/history.png")}
+            onPress={handleToFoodHistory}
+          />
 
-        <Text style={styles.menuTitle}>약관 및 정보</Text>
-        <View style={styles.menuStart} />
-        <MenuItem
-          menuTitle="개인정보 처리방침"
-          menuImage={require("@/assets/images/menu_privacy.png")}
-          onPress={() => {
-            if (logoutOpen || isLogoutInProgress()) return;
-            setPrivacyOpen(true);
-          }}
-        />
-        <MenuItem
-          menuTitle="앱 버전"
-          menuImage={require("@/assets/images/info.png")}
-          isVersion
-        />
-        <View style={styles.menuEnd} />
+          {canLinkKakao && (
+            <MenuItem
+              menuTitle="카카오 계정 연결"
+              menuImage={require("@/assets/images/kakao_connect.png")}
+              onPress={handleToKakaoLink}
+            />
+          )}
+          <View style={styles.menuEnd} />
+
+          <Text style={styles.menuTitle}>약관 및 정보</Text>
+          <View style={styles.menuStart} />
+          <MenuItem
+            menuTitle="개인정보 처리방침"
+            menuImage={require("@/assets/images/menu_privacy.png")}
+            onPress={() => {
+              if (logoutOpen || isLogoutInProgress()) return;
+              setPrivacyOpen(true);
+            }}
+          />
+          <MenuItem
+            menuTitle="앱 버전"
+            menuImage={require("@/assets/images/info.png")}
+            isVersion
+          />
+          <View style={styles.menuEnd} />
         </ScrollView>
         {isKakaoLinked && (
           <View style={styles.accountActions}>
