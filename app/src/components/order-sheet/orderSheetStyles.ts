@@ -25,18 +25,6 @@ export const orderSheetStyles = StyleSheet.create({
         paddingHorizontal: 24,
         gap: 20,
     },
-    resultPage: {
-        paddingHorizontal: 23,
-        paddingTop: 32,
-    },
-    resultMenuName: {
-        fontFamily: Fonts.nonpreferencefood,
-        fontSize: 30.13,
-        lineHeight: 46,
-        color: Colors.textBrown,
-        textAlign: "center",
-        marginTop: 38,
-    },
     submitErrorSection: {
         gap: 12,
         marginBottom: 20,
@@ -163,14 +151,6 @@ export const orderSheetStyles = StyleSheet.create({
         ],
     },
 
-    recommendationTitle: {
-        fontFamily: Fonts.nonpreferencefood,
-        fontSize: 25.17,
-        lineHeight: 38,
-        color: Colors.textSecondary,
-        textAlign: "center",
-    },
-
     resultImageCircle: {
         alignSelf: "center",
         width: 216,
@@ -181,9 +161,5 @@ export const orderSheetStyles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         marginTop: 8,
-    },
-
-    resultActions: {
-        marginTop: 54,
     },
 })

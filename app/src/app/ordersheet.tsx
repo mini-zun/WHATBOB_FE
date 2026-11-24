@@ -1,461 +1,522 @@
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Pressable, Text, View, ScrollView, useWindowDimensions } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image } from "expo-image";
+import {
+  Pressable,
+  Text,
+  View,
+  StyleSheet,
+  useWindowDimensions,
+} from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { ScrollView as GestureScrollView } from "react-native-gesture-handler";
 import { useEffect, useState, useRef } from "react";
 import { orderSheetStyles as styles } from "@/components/order-sheet/orderSheetStyles";
 import { OrderSheetQuestions } from "@/components/order-sheet/OrderSheetQuestions";
-import ConfirmedMenuScreen from "@/components/order-sheet/ConfirmedMenuScreen"
-
+import ConfirmedMenuScreen from "@/components/order-sheet/ConfirmedMenuScreen";
 
 import {
-    getOrderSheetQuestions,
-    submitOrderSheet,
-    submitRecommendationFeedback,
+  getOrderSheetQuestions,
+  submitOrderSheet,
+  submitRecommendationFeedback,
 } from "@/lib/order_sheet";
 import type {
-    OrderSheetAnswer,
-    OrderSheetQuestion,
-    OrderSheetRecommendData,
+  OrderSheetAnswer,
+  OrderSheetQuestion,
+  OrderSheetRecommendData,
 } from "@/types/order_sheet";
 
-
-import { Colors } from "@/constants/theme";
+import { Colors, Fonts } from "@/constants/theme";
 import { getAuthRestartMessage } from "@/lib/auth_recovery";
-
+import { FoodResultCarousel } from "@/components/order-sheet/FoodResultCarousel";
 
 export default function OrderSheetScreen() {
-    const { height } = useWindowDimensions();
-    const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
-    const [questions, setQuestions] = useState<OrderSheetQuestion[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [retryCount, setRetryCount] = useState(0);
-    const [questionIndex, setQuestionIndex] = useState(0);
-    const [answers, setAnswers] = useState<OrderSheetAnswer[]>([]);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitError, setSubmitError] = useState<string | null>(null);
-    const [recommendation, setRecommendation] =
-        useState<OrderSheetRecommendData | null>(null);
-    const [recommendationIndex, setRecommendationIndex] = useState(0);
-    const submitInProgress = useRef(false);
-    const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
-    const [feedbackError, setFeedbackError] = useState<string | null>(null);
-    const [isAccepted, setIsAccepted] = useState(false);
-    const [authRestartMessage, setAuthRestartMessage] = useState<string | null>(null);
+  const [questions, setQuestions] = useState<OrderSheetQuestion[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [answers, setAnswers] = useState<OrderSheetAnswer[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [recommendation, setRecommendation] =
+    useState<OrderSheetRecommendData | null>(null);
+  const [recommendationIndex, setRecommendationIndex] = useState(0);
+  const submitInProgress = useRef(false);
+  const [isFeedbackSubmitting, setIsFeedbackSubmitting] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [isAccepted, setIsAccepted] = useState(false);
+  const [authRestartMessage, setAuthRestartMessage] = useState<string | null>(
+    null,
+  );
 
-    const feedbackInProgress = useRef(false);
-    const completedFeedback = useRef(new Map<string, boolean>());
+  const feedbackInProgress = useRef(false);
+  const lastFeedback = useRef(new Map<string, boolean>());
 
-    const availableHeight = height - insets.top - insets.bottom;
+  const availableHeight = height - insets.top - insets.bottom;
 
-    const questionTopSpacing = Math.max(
-        32, Math.min(146, 146 - (852 - availableHeight)),
-    );
+  const questionTopSpacing = Math.max(
+    32,
+    Math.min(146, 146 - (852 - availableHeight)),
+  );
 
-    useEffect(() => {
-        let cancelled = false;
+  useEffect(() => {
+    let cancelled = false;
 
-        const loadQuestions = async () => {
-            setIsLoading(true);
-            setError(null);
+    const loadQuestions = async () => {
+      setIsLoading(true);
+      setError(null);
 
-            try {
-                const data = await getOrderSheetQuestions();
+      try {
+        const data = await getOrderSheetQuestions();
 
-                if (!cancelled) {
-                    setQuestions(data.questions);
-                    setQuestionIndex(0);
-                    setAnswers([]);
-                    setSubmitError(null);
-                    setRecommendation(null);
-                    setRecommendationIndex(0);
-                    setFeedbackError(null);
-                    setIsAccepted(false);
-                    completedFeedback.current.clear();
-                }
-            } catch (error) {
-                if (!cancelled) {
-                    const restartMessage = getAuthRestartMessage(error);
-                    if (restartMessage) {
-                        setAuthRestartMessage(restartMessage);
-                    }
-
-                    setError(
-                        error instanceof Error ? error.message : "질문을 불러오지 못했습니다.",
-                    );
-                }
-            } finally {
-                if (!cancelled) {
-                    setIsLoading(false);
-                }
-            }
-        };
-
-        void loadQuestions();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [retryCount]);
-
-    const question = questions[questionIndex];
-
-
-    const currentMenu =
-        recommendation?.recommended_menus[recommendationIndex];
-
-    const selectedOptionId = answers.find(
-        (answer) => answer.question_id === question?.id,
-    )?.option_id;
-
-    const handleSubmit = async (submittedAnswers: OrderSheetAnswer[]) => {
-        if (submitInProgress.current || recommendation) return;
-
-        const hasAllAnswers =
-            questions.length > 0 &&
-            questions.every((question) =>
-                submittedAnswers.some(
-                    (answer) => answer.question_id === question.id,
-                ),
-            );
-
-        if (!hasAllAnswers) {
-            setSubmitError("모든 질문에 답변해 주세요.");
-            return;
+        if (!cancelled) {
+          setQuestions(data.questions);
+          setQuestionIndex(0);
+          setAnswers([]);
+          setSubmitError(null);
+          setRecommendation(null);
+          setRecommendationIndex(0);
+          setFeedbackError(null);
+          setIsAccepted(false);
+          lastFeedback.current.clear();
         }
+      } catch (error) {
+        if (!cancelled) {
+          const restartMessage = getAuthRestartMessage(error);
+          if (restartMessage) {
+            setAuthRestartMessage(restartMessage);
+          }
 
-        submitInProgress.current = true;
-        setIsSubmitting(true);
-        setSubmitError(null);
-
-        try {
-            const data = await submitOrderSheet({
-                answers: submittedAnswers,
-                exclusions: [],
-                top_k: 5,
-            });
-
-            setRecommendationIndex(0);
-            setFeedbackError(null);
-            setIsAccepted(false);
-            completedFeedback.current.clear();
-            setRecommendation(data);
-        } catch (error) {
-            const restartMessage = getAuthRestartMessage(error);
-            if (restartMessage) {
-                setAuthRestartMessage(restartMessage);
-            }
-
-            setSubmitError(
-                error instanceof Error
-                    ? error.message
-                    : "추천 요청에 실패했습니다.",
-            );
-        } finally {
-            submitInProgress.current = false;
-            setIsSubmitting(false);
+          setError(
+            error instanceof Error
+              ? error.message
+              : "질문을 불러오지 못했습니다.",
+          );
         }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
     };
 
-    const handleAnswer = (optionId: string) => {
-        if (!question || submitInProgress.current || recommendation) {
-            return;
-        }
+    void loadQuestions();
 
-        const nextAnswers: OrderSheetAnswer[] = [
-            ...answers.filter(
-                (answer) => answer.question_id !== question.id,
-            ),
-            {
-                question_id: question.id,
-                option_id: optionId,
-            },
-        ];
-
-        setAnswers(nextAnswers);
-        setSubmitError(null);
-
-        if (questionIndex < questions.length - 1) {
-            setQuestionIndex(questionIndex + 1);
-            return;
-        }
-
-        void handleSubmit(nextAnswers);
+    return () => {
+      cancelled = true;
     };
+  }, [retryCount]);
 
-    const handleBack = () => {
-        if (submitInProgress.current) return;
+  const question = questions[questionIndex];
 
-        setSubmitError(null);
+  const currentMenu = recommendation?.recommended_menus[recommendationIndex];
 
-        if (questionIndex === 0) {
-            router.back();
-            return;
-        }
+  const selectedOptionId = answers.find(
+    (answer) => answer.question_id === question?.id,
+  )?.option_id;
 
-        setQuestionIndex(questionIndex - 1);
-    };
+  const handleSubmit = async (submittedAnswers: OrderSheetAnswer[]) => {
+    if (submitInProgress.current || recommendation) return;
 
-    const handleFeedback = async (isSatisfied: boolean) => {
-        if (!recommendation || !currentMenu || isAccepted) return;
-        if (feedbackInProgress.current) return;
-        const feedbackKey = `${recommendation.recommendation_id}:${currentMenu.menu_id}`;
+    const hasAllAnswers =
+      questions.length > 0 &&
+      questions.every((question) =>
+        submittedAnswers.some((answer) => answer.question_id === question.id),
+      );
 
-        feedbackInProgress.current = true;
-        setIsFeedbackSubmitting(true);
-        setFeedbackError(null);
-
-        try {
-            const previousFeedback = completedFeedback.current.get(feedbackKey);
-            if (previousFeedback !== isSatisfied) {
-                await submitRecommendationFeedback(
-                    recommendation.recommendation_id, {
-                    selected_menu_id: currentMenu.menu_id,
-                    is_satisfied: isSatisfied,
-                },
-                );
-                completedFeedback.current.set(feedbackKey, isSatisfied);
-            }
-            if (isSatisfied) {
-                setIsAccepted(true);
-                return;
-            }
-            if (recommendationIndex >= recommendation.recommended_menus.length - 1) {
-                router.replace("/home");
-                return;
-            }
-            setRecommendationIndex(recommendationIndex + 1);
-        } catch (error) {
-            const restartMessage = getAuthRestartMessage(error);
-            if (restartMessage) {
-                setAuthRestartMessage(restartMessage);
-            }
-
-            setFeedbackError(
-                error instanceof Error
-                    ? error.message
-                    : "피드백을 저장하지 못했습니다.",
-            );
-        } finally {
-            feedbackInProgress.current = false;
-            setIsFeedbackSubmitting(false);
-        }
-    };
-
-    if (authRestartMessage) {
-        return (
-            <SafeAreaView style={styles.safeArea}>
-                <View style={[styles.page, styles.statusPage]}>
-                    <Text
-                        accessibilityRole="alert"
-                        style={styles.skipText}
-                    >
-                        {authRestartMessage}
-                    </Text>
-
-                    <Pressable
-                        accessibilityRole="button"
-                        style={styles.answerButton}
-                        onPress={() => {
-                            if (typeof window !== "undefined") {
-                                window.location.replace("/");
-                            }
-                        }}
-                    >
-                        <Text style={styles.answerButtonText}>
-                            인증 다시 시작
-                        </Text>
-                    </Pressable>
-                </View>
-            </SafeAreaView>
-        );
+    if (!hasAllAnswers) {
+      setSubmitError("모든 질문에 답변해 주세요.");
+      return;
     }
 
-    if (isLoading || error || !question) {
-        return (
-            <SafeAreaView style={styles.safeArea}>
-                <View style={[styles.page, styles.statusPage]}>
-                    <Text style={styles.skipText}>
-                        {isLoading
-                            ? "질문을 불러오는 중이에요."
-                            : error || "표시할 질문이 없습니다."}
-                    </Text>
+    submitInProgress.current = true;
+    setIsSubmitting(true);
+    setSubmitError(null);
 
-                    {!isLoading && (
-                        <Pressable
-                            accessibilityRole="button"
-                            style={styles.answerButton}
-                            onPress={() => setRetryCount((count) => count + 1)}
-                        >
-                            <Text style={styles.answerButtonText}>다시 시도</Text>
-                        </Pressable>
-                    )}
+    try {
+      const data = await submitOrderSheet({
+        answers: submittedAnswers,
+        exclusions: [],
+        top_k: 5,
+      });
 
-                    <Pressable
-                        accessibilityRole="button"
-                        onPress={() => router.back()}
-                    >
-                        <Text style={styles.skipText}>뒤로가기</Text>
-                    </Pressable>
-                </View>
-            </SafeAreaView>
-        );
+      setRecommendationIndex(0);
+      setFeedbackError(null);
+      setIsAccepted(false);
+      lastFeedback.current.clear();
+      setRecommendation(data);
+    } catch (error) {
+      const restartMessage = getAuthRestartMessage(error);
+      if (restartMessage) {
+        setAuthRestartMessage(restartMessage);
+      }
+
+      setSubmitError(
+        error instanceof Error ? error.message : "추천 요청에 실패했습니다.",
+      );
+    } finally {
+      submitInProgress.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAnswer = (optionId: string) => {
+    if (!question || submitInProgress.current || recommendation) {
+      return;
     }
 
-    if (isSubmitting) {
-        return (
-            <SafeAreaView style={styles.safeArea}>
-                <View
-                    style={[styles.page, styles.statusPage]}
-                    accessibilityState={{ busy: true }}
-                >
-                    <Text style={styles.skipText}>
-                        답변에 맞는 메뉴를 찾고 있어요.
-                    </Text>
-                </View>
-            </SafeAreaView>
-        );
+    const nextAnswers: OrderSheetAnswer[] = [
+      ...answers.filter((answer) => answer.question_id !== question.id),
+      {
+        question_id: question.id,
+        option_id: optionId,
+      },
+    ];
+
+    setAnswers(nextAnswers);
+    setSubmitError(null);
+
+    if (questionIndex < questions.length - 1) {
+      setQuestionIndex(questionIndex + 1);
+      return;
     }
 
-    if (recommendation && currentMenu && isAccepted) {
-        return (
-            <ConfirmedMenuScreen
-                menu={currentMenu}
-                onBack={() => setIsAccepted(false)}
-            />
-        );
+    void handleSubmit(nextAnswers);
+  };
+
+  const handleBack = () => {
+    if (submitInProgress.current) return;
+
+    setSubmitError(null);
+
+    if (questionIndex === 0) {
+      router.back();
+      return;
     }
 
-    if (recommendation && currentMenu) {
-        return (
-            <SafeAreaView style={styles.safeArea}>
-                <View style={styles.header}>
-                    <Pressable onPress={() => router.replace("/home")}
-                        style={styles.backButton}
-                        accessibilityRole="button"
-                        accessibilityLabel="홈으로 돌아가기"
-                        disabled={isFeedbackSubmitting}
-                        accessibilityState={{ disabled: isFeedbackSubmitting }}
-                    >
-                        <Feather
-                            name="arrow-left"
-                            size={26}
-                            color={Colors.maintext}
-                        />
-                    </Pressable>
+    setQuestionIndex(questionIndex - 1);
+  };
 
-                    <View style={styles.progressTrack}>
-                        <View style={styles.progressBackground} />
-                        <View
-                            style={[
-                                styles.progressFill,
-                                { width: "100%" },
-                            ]}
-                        />
-                    </View>
+  const handleReject = async () => {
+    if (!recommendation || isAccepted || feedbackInProgress.current) return;
 
-                    <Text style={styles.progressText}>
-                        {questions.length}/{questions.length}
-                    </Text>
-                </View>
+    feedbackInProgress.current = true;
+    setIsFeedbackSubmitting(true);
+    setFeedbackError(null);
 
-                <ScrollView
-                    key={`recommendation-${currentMenu.menu_id}`}
-                    style={styles.scroll}
-                    contentContainerStyle={[styles.page, styles.resultPage, { paddingTop: Math.max(24, questionTopSpacing - 46) },]}
-                    showsVerticalScrollIndicator={false}
-                    bounces={false}
-                >
-                    <Text style={styles.recommendationTitle}>혹시 이 메뉴인가요?</Text>
+    try {
+      for (const menu of recommendation.recommended_menus) {
+        const feedbackKey = `${recommendation.recommendation_id}:${menu.menu_id}`;
+        if (lastFeedback.current.get(feedbackKey) === false) continue;
 
-                    <View style={styles.resultImageCircle}>
-                        <Image source={require("@/assets/images/whatbob_icon.png")}
-                            contentFit="contain"
-                            style={styles.characterImage}
-                        />
-                    </View>
+        await submitRecommendationFeedback(recommendation.recommendation_id, {
+          selected_menu_id: menu.menu_id,
+          is_satisfied: false,
+        });
 
-                    <Text style={styles.resultMenuName}>{currentMenu.name}</Text>
+        lastFeedback.current.set(feedbackKey, false);
+      }
 
-                    {isFeedbackSubmitting && (
-                        <Text style={styles.skipText}>
-                            선택을 저장하고 있어요.
-                        </Text>
-                    )}
-                    {feedbackError && (
-                        <Text style={styles.skipText}>{feedbackError}</Text>
-                    )}
+      router.replace("/home");
+    } catch (error) {
+      const restartMessage = getAuthRestartMessage(error);
+      if (restartMessage) {
+        setAuthRestartMessage(restartMessage);
+      }
 
-                    <View style={[styles.answerButtons, styles.resultActions]}>
-                        <Pressable
-                            accessibilityRole="button"
-                            style={[
-                                styles.answerButton,
-                                isFeedbackSubmitting && styles.selectedOption,
-                            ]}
-                            disabled={isFeedbackSubmitting}
-                            accessibilityState={{
-                                disabled: isFeedbackSubmitting,
-                                busy: isFeedbackSubmitting,
-                            }}
-                            onPress={() => void handleFeedback(true)}
-                        >
-                            <Text style={styles.answerButtonText}>
-                                맞아요! 이걸로
-                            </Text>
-                        </Pressable>
+      setFeedbackError(
+        error instanceof Error
+          ? error.message
+          : "피드백을 저장하지 못했습니다.",
+      );
+    } finally {
+      feedbackInProgress.current = false;
+      setIsFeedbackSubmitting(false);
+    }
+  };
 
-                        <Pressable
-                            accessibilityRole="button"
-                            style={[
-                                styles.answerButton,
-                                isFeedbackSubmitting && styles.selectedOption,
-                            ]}
-                            disabled={isFeedbackSubmitting}
-                            accessibilityState={{
-                                disabled: isFeedbackSubmitting,
-                                busy: isFeedbackSubmitting,
-                            }}
-                            onPress={() => void handleFeedback(false)}
-                        >
-                            <Text style={styles.answerButtonText}>
-                                아니에요, 계속 할래요
-                            </Text>
-                        </Pressable>
-                    </View>
-                </ScrollView>
-            </SafeAreaView >
-        );
+  const handleFeedback = async (isSatisfied: boolean) => {
+    if (!recommendation || !currentMenu || isAccepted) return;
+
+    const feedbackKey = `${recommendation.recommendation_id}:${currentMenu.menu_id}`;
+
+    if (feedbackInProgress.current) return;
+
+    if (lastFeedback.current.get(feedbackKey) === isSatisfied) {
+      if (isSatisfied) setIsAccepted(true);
+      return;
     }
 
+    feedbackInProgress.current = true;
+    setIsFeedbackSubmitting(true);
+    setFeedbackError(null);
+
+    try {
+      await submitRecommendationFeedback(recommendation.recommendation_id, {
+        selected_menu_id: currentMenu.menu_id,
+        is_satisfied: isSatisfied,
+      });
+
+      lastFeedback.current.set(feedbackKey, isSatisfied);
+
+      if (isSatisfied) {
+        setIsAccepted(true);
+        return;
+      }
+
+      if (recommendationIndex >= recommendation.recommended_menus.length - 1) {
+        router.replace("/home");
+        return;
+      }
+
+      setRecommendationIndex(recommendationIndex + 1);
+    } catch (error) {
+      const restartMessage = getAuthRestartMessage(error);
+      if (restartMessage) {
+        setAuthRestartMessage(restartMessage);
+      }
+
+      setFeedbackError(
+        error instanceof Error
+          ? error.message
+          : "피드백을 저장하지 못했습니다.",
+      );
+    } finally {
+      feedbackInProgress.current = false;
+      setIsFeedbackSubmitting(false);
+    }
+  };
+
+  if (authRestartMessage) {
     return (
-        <OrderSheetQuestions
-            question={question}
-            questionIndex={questionIndex}
-            totalCount={questions.length}
-            selectedOptionId={selectedOptionId}
-            questionTopSpacing={questionTopSpacing}
-            onBack={handleBack}
-            onAnswer={handleAnswer}
-        >
-            {submitError && (
-                <View style={styles.submitErrorSection}>
-                    <Text style={styles.skipText}>{submitError}</Text>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={[styles.page, styles.statusPage]}>
+          <Text accessibilityRole="alert" style={styles.skipText}>
+            {authRestartMessage}
+          </Text>
 
-                    <Pressable
-                        accessibilityRole="button"
-                        style={styles.answerButton}
-                        onPress={() => void handleSubmit(answers)}
-                    >
-                        <Text style={styles.answerButtonText}>
-                            추천 다시 요청하기
-                        </Text>
-                    </Pressable>
-                </View>
-            )}
-        </OrderSheetQuestions>
+          <Pressable
+            accessibilityRole="button"
+            style={styles.answerButton}
+            onPress={() => {
+              if (typeof window !== "undefined") {
+                window.location.replace("/");
+              }
+            }}
+          >
+            <Text style={styles.answerButtonText}>인증 다시 시작</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
+  }
+
+  if (isLoading || error || !question) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={[styles.page, styles.statusPage]}>
+          <Text style={styles.skipText}>
+            {isLoading
+              ? "질문을 불러오는 중이에요."
+              : error || "표시할 질문이 없습니다."}
+          </Text>
+
+          {!isLoading && (
+            <Pressable
+              accessibilityRole="button"
+              style={styles.answerButton}
+              onPress={() => setRetryCount((count) => count + 1)}
+            >
+              <Text style={styles.answerButtonText}>다시 시도</Text>
+            </Pressable>
+          )}
+
+          <Pressable accessibilityRole="button" onPress={() => router.back()}>
+            <Text style={styles.skipText}>뒤로가기</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isSubmitting) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View
+          style={[styles.page, styles.statusPage]}
+          accessibilityState={{ busy: true }}
+        >
+          <Text style={styles.skipText}>답변에 맞는 메뉴를 찾고 있어요.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (recommendation && currentMenu && isAccepted) {
+    return (
+      <ConfirmedMenuScreen
+        menu={currentMenu}
+        onBack={() => setIsAccepted(false)}
+      />
+    );
+  }
+
+  if (recommendation && currentMenu) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={resultStyles.header}>
+          <Pressable
+            onPress={() => router.replace("/home")}
+            style={styles.backButton}
+            accessibilityRole="button"
+            accessibilityLabel="홈으로 돌아가기"
+            disabled={isFeedbackSubmitting}
+          >
+            <Feather name="arrow-left" size={26} color={Colors.maintext} />
+          </Pressable>
+          <Text style={resultStyles.headerTitle}>오늘의 메뉴는?</Text>
+        </View>
+
+        <GestureScrollView
+          style={resultStyles.scroll}
+          contentContainerStyle={resultStyles.middle}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          <FoodResultCarousel
+            key={recommendation.recommendation_id}
+            menus={recommendation.recommended_menus}
+            initialIndex={recommendationIndex}
+            onIndexChange={setRecommendationIndex}
+            disabled={isFeedbackSubmitting}
+          />
+        </GestureScrollView>
+
+        <View style={resultStyles.footer}>
+          {feedbackError && (
+            <Text style={styles.skipText}>{feedbackError}</Text>
+          )}
+
+          <Pressable
+            accessibilityRole="button"
+            style={[
+              resultStyles.decideButton,
+              isFeedbackSubmitting && styles.selectedOption,
+            ]}
+            disabled={isFeedbackSubmitting}
+            accessibilityState={{
+              disabled: isFeedbackSubmitting,
+              busy: isFeedbackSubmitting,
+            }}
+            onPress={() => void handleFeedback(true)}
+          >
+            <Text style={resultStyles.decideButtonText}>이걸로 정했어요!</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={isFeedbackSubmitting}
+            accessibilityState={{
+              disabled: isFeedbackSubmitting,
+              busy: isFeedbackSubmitting,
+            }}
+            hitSlop={8}
+            onPress={() => void handleReject()}
+          >
+            <Text style={resultStyles.cancelText}>
+              마음에 드는 메뉴가 없어요
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <OrderSheetQuestions
+      question={question}
+      questionIndex={questionIndex}
+      totalCount={questions.length}
+      selectedOptionId={selectedOptionId}
+      questionTopSpacing={questionTopSpacing}
+      onBack={handleBack}
+      onAnswer={handleAnswer}
+    >
+      {submitError && (
+        <View style={styles.submitErrorSection}>
+          <Text style={styles.skipText}>{submitError}</Text>
+
+          <Pressable
+            accessibilityRole="button"
+            style={styles.answerButton}
+            onPress={() => void handleSubmit(answers)}
+          >
+            <Text style={styles.answerButtonText}>추천 다시 요청하기</Text>
+          </Pressable>
+        </View>
+      )}
+    </OrderSheetQuestions>
+  );
 }
+
+const resultStyles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginTop: 30,
+    paddingHorizontal: 30,
+  },
+  headerTitle: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 26,
+    color: Colors.maintext,
+  },
+  scroll: {
+    flex: 1,
+  },
+  middle: {
+    flexGrow: 1,
+    width: "100%",
+    maxWidth: 430,
+    alignSelf: "center",
+    paddingHorizontal: 23,
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  footer: {
+    width: "100%",
+    maxWidth: 430,
+    alignSelf: "center",
+    paddingHorizontal: 23,
+    paddingBottom: 24,
+    alignItems: "center",
+    gap: 8,
+  },
+  decideButton: {
+    width: "100%",
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.textBrown,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  decideButtonText: {
+    fontFamily: Fonts.bodyBold,
+    fontSize: 18,
+    color: Colors.white,
+  },
+  cancelText: {
+    fontFamily: Fonts.nonpreferencefood,
+    fontSize: 12,
+    textDecorationLine: "underline",
+    color: Colors.textSecondary,
+    marginTop: 10,
+  },
+});
