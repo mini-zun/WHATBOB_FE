@@ -415,6 +415,7 @@ export default function OrderSheetScreen() {
           <FoodResultCarousel
             key={recommendation.recommendation_id}
             menus={recommendation.recommended_menus}
+            initialIndex={recommendationIndex}
             onIndexChange={setRecommendationIndex}
             disabled={isFeedbackSubmitting}
           />
