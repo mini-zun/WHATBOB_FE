@@ -57,7 +57,7 @@ export default function OrderSheetScreen() {
   );
 
   const feedbackInProgress = useRef(false);
-  const completedFeedback = useRef(new Set<string>());
+  const lastFeedback = useRef(new Map<string, boolean>());
 
   const availableHeight = height - insets.top - insets.bottom;
 
@@ -85,7 +85,7 @@ export default function OrderSheetScreen() {
           setRecommendationIndex(0);
           setFeedbackError(null);
           setIsAccepted(false);
-          completedFeedback.current.clear();
+          lastFeedback.current.clear();
         }
       } catch (error) {
         if (!cancelled) {
@@ -150,7 +150,7 @@ export default function OrderSheetScreen() {
       setRecommendationIndex(0);
       setFeedbackError(null);
       setIsAccepted(false);
-      completedFeedback.current.clear();
+      lastFeedback.current.clear();
       setRecommendation(data);
     } catch (error) {
       const restartMessage = getAuthRestartMessage(error);
@@ -214,14 +214,14 @@ export default function OrderSheetScreen() {
     try {
       for (const menu of recommendation.recommended_menus) {
         const feedbackKey = `${recommendation.recommendation_id}:${menu.menu_id}`;
-        if (completedFeedback.current.has(feedbackKey)) continue;
+        if (lastFeedback.current.get(feedbackKey) === false) continue;
 
         await submitRecommendationFeedback(recommendation.recommendation_id, {
           selected_menu_id: menu.menu_id,
           is_satisfied: false,
         });
 
-        completedFeedback.current.add(feedbackKey);
+        lastFeedback.current.set(feedbackKey, false);
       }
 
       router.replace("/home");
@@ -247,10 +247,10 @@ export default function OrderSheetScreen() {
 
     const feedbackKey = `${recommendation.recommendation_id}:${currentMenu.menu_id}`;
 
-    if (
-      feedbackInProgress.current ||
-      completedFeedback.current.has(feedbackKey)
-    ) {
+    if (feedbackInProgress.current) return;
+
+    if (lastFeedback.current.get(feedbackKey) === isSatisfied) {
+      if (isSatisfied) setIsAccepted(true);
       return;
     }
 
@@ -264,7 +264,7 @@ export default function OrderSheetScreen() {
         is_satisfied: isSatisfied,
       });
 
-      completedFeedback.current.add(feedbackKey);
+      lastFeedback.current.set(feedbackKey, isSatisfied);
 
       if (isSatisfied) {
         setIsAccepted(true);
