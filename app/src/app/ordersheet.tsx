@@ -6,6 +6,7 @@ import { Image } from "expo-image";
 import { useEffect, useState, useRef } from "react";
 import { orderSheetStyles as styles } from "@/components/order-sheet/orderSheetStyles";
 import { OrderSheetQuestions } from "@/components/order-sheet/OrderSheetQuestions";
+import ConfirmedMenuScreen from "@/components/order-sheet/ConfirmedMenuScreen"
 
 
 import {
@@ -200,13 +201,16 @@ export default function OrderSheetScreen() {
 
     const handleFeedback = async (isSatisfied: boolean) => {
         if (!recommendation || !currentMenu || isAccepted) return;
-
-        const feedbackKey = `${recommendation.recommendation_id}:${currentMenu.menu_id}`;
+        if(feedbackInProgress.current) return;
+        const feedbackKey = `${recommendation.recommendation_id}:${currentMenu.menu_id}:${isSatisfied}`;
 
         if (
-            feedbackInProgress.current ||
             completedFeedback.current.has(feedbackKey)
         ) {
+            if(isSatisfied) {
+                setFeedbackError(null);
+                setIsAccepted(true);
+            }
             return;
         }
 
@@ -333,32 +337,10 @@ export default function OrderSheetScreen() {
 
     if (recommendation && currentMenu && isAccepted) {
         return (
-            <SafeAreaView style={styles.safeArea}>
-                <ScrollView
-                    style={styles.scroll}
-                    contentContainerStyle={[styles.page, styles.statusPage]}
-                    bounces={false}
-                >
-                    <View style={styles.resultImageCircle}>
-                        <Image
-                            source={require("@/assets/images/whatbob_icon.png")}
-                            contentFit="contain"
-                            style={styles.characterImage}
-                        />
-                    </View>
-                    <Text style={styles.resultTitle}>
-                        오늘 메뉴는 {currentMenu.name}!
-                    </Text>
-                    <Text style={styles.skipText}>맛있게 드세요.</Text>
-                    <Pressable
-                        accessibilityRole="button"
-                        style={[styles.answerButton, styles.completionButton]}
-                        onPress={() => router.replace("/home")}
-                    >
-                        <Text style={styles.answerButtonText}>홈으로</Text>
-                    </Pressable>
-                </ScrollView>
-            </SafeAreaView>
+            <ConfirmedMenuScreen
+            menu={currentMenu}
+            onBack={() => setIsAccepted(false)}
+            />
         );
     }
 

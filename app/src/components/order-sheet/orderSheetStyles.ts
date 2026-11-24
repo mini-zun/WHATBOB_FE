@@ -25,19 +25,9 @@ export const orderSheetStyles = StyleSheet.create({
         paddingHorizontal: 24,
         gap: 20,
     },
-    completionButton: {
-        width: "100%",
-    },
     resultPage: {
         paddingHorizontal: 23,
         paddingTop: 32,
-    },
-    resultTitle: {
-        fontFamily: Fonts.nonpreferencefood,
-        fontSize: 28.5,
-        lineHeight: 36,
-        color: Colors.textBrown,
-        textAlign: "center",
     },
     resultMenuName: {
         fontFamily: Fonts.nonpreferencefood,
