@@ -4,6 +4,7 @@ import {
   BackHandler,
   Pressable,
   StyleSheet,
+  ScrollView,
   Text,
   View,
   Platform,
@@ -196,13 +197,28 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         style={[styles.panel]}
         pointerEvents={logoutOpen ? "none" : "auto"}
       >
-        <View style={styles.profileBack}>
+        <View style={[
+          styles.profileBack,
+          isKakaoLinked && { marginBottom: 0 },
+        ]}>
+          <Pressable
+            style={styles.closeButton}
+            onPress={handleDrawerClose}
+            accessibilityRole="button"
+            accessibilityLabel="사이드 메뉴 닫기"
+          >
+            <Feather
+              name="arrow-right"
+              size={26}
+              color={Colors.textBrown}
+            />
+          </Pressable>
           <View style={styles.profileEditLayout}>
             <Image
               source={
                 profileimage
                   ? { uri: profileimage }
-                  : require("@/assets/images/empty_user_icon.png")
+                  : require("@/assets/images/profile_default.png")
               }
               contentFit="cover"
               style={styles.profileIconSec}
@@ -219,15 +235,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
             <Text style={styles.userName} numberOfLines={1}>
               {nickname} 님
             </Text>
-            {isKakaoLinked && (
-              <Image
-                source={require("@/assets/images/kakao_login_kr_small.png")}
-                contentFit="contain"
-                style={styles.kakaoLogo}
-                accessible
-                accessibilityLabel="카카오 계정 연결됨"
-              />
-            )}
+
             <Pressable>
               <Image
                 source={require("@/assets/images/edit_pen.png")}
@@ -238,49 +246,65 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           </View>
           <Text style={styles.profileDesc}>오늘도 맛있는 하루 되세요!</Text>
         </View>
-        <Text style={styles.menuTitle}>나의 활동</Text>
-        <View style={styles.menuStart} />
-        <MenuItem
-          menuTitle="못 먹는 음식 수정"
-          menuIcon="slash"
-          menuIconColor="red"
-          onPress={handleToNonPreferenceFood}
-        />
-        <MenuItem
-          menuTitle="기록 모아보기"
-          menuIcon="calendar"
-          menuIconColor="orange"
-          onPress={handleToFoodHistory}
-        />
 
-        {canLinkKakao && (
+        <ScrollView
+          style={styles.menuScroll}
+          contentContainerStyle={styles.menuScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {isKakaoLinked && (
+            <View style={styles.kakaoCard}>
+              <Image
+                source={require("@/assets/images/kakao_icon.png")}
+                contentFit="contain"
+                style={styles.kakaoLogo}
+                accessible={false}
+              />
+              <View>
+                <Text style={styles.kakaoAccountTitle}>카카오 계정</Text>
+                <Text style={styles.kakaoAccountStatus}>연결됨</Text>
+              </View>
+            </View>
+          )}
+          <Text style={styles.menuTitle}>나의 활동</Text>
+          <View style={styles.menuStart} />
           <MenuItem
-            menuTitle="카카오 계정 연결"
-            menuIcon="link"
-            menuIconColor="darkYellow"
-            onPress={handleToKakaoLink}
+            menuTitle="못 먹는 음식 수정"
+            menuImage={require("@/assets/images/menu_non_preference.png")}
+            onPress={handleToNonPreferenceFood}
           />
-        )}
-        <View style={styles.menuEnd} />
+          <MenuItem
+            menuTitle="기록 모아보기"
+            menuImage={require("@/assets/images/history.png")}
+            onPress={handleToFoodHistory}
+          />
 
-        <Text style={styles.menuTitle}>약관 및 정보</Text>
-        <View style={styles.menuStart} />
-        <MenuItem
-          menuTitle="개인정보 처리방침"
-          menuIcon="lock"
-          menuIconColor="darkYellow"
-          onPress={() => {
-            if (logoutOpen || isLogoutInProgress()) return;
-            setPrivacyOpen(true);
-          }}
-        />
-        <MenuItem
-          menuTitle="앱 버전"
-          menuIcon="info"
-          menuIconColor="blue"
-          isVersion
-        />
-        <View style={styles.menuEnd} />
+          {canLinkKakao && (
+            <MenuItem
+              menuTitle="카카오 계정 연결"
+              menuImage={require("@/assets/images/kakao_connect.png")}
+              onPress={handleToKakaoLink}
+            />
+          )}
+          <View style={styles.menuEnd} />
+
+          <Text style={styles.menuTitle}>약관 및 정보</Text>
+          <View style={styles.menuStart} />
+          <MenuItem
+            menuTitle="개인정보 처리방침"
+            menuImage={require("@/assets/images/menu_privacy.png")}
+            onPress={() => {
+              if (logoutOpen || isLogoutInProgress()) return;
+              setPrivacyOpen(true);
+            }}
+          />
+          <MenuItem
+            menuTitle="앱 버전"
+            menuImage={require("@/assets/images/info.png")}
+            isVersion
+          />
+          <View style={styles.menuEnd} />
+        </ScrollView>
         {isKakaoLinked && (
           <View style={styles.accountActions}>
             <Pressable
@@ -319,7 +343,8 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
 }
 
 type MenuItemProps = {
-  menuIcon: ComponentProps<typeof Feather>["name"];
+  menuIcon?: ComponentProps<typeof Feather>["name"];
+  menuImage?: ComponentProps<typeof Image>["source"];
   menuIconColor?: keyof typeof Colors;
   menuTitle: string;
   onPress?: () => void;
@@ -328,6 +353,7 @@ type MenuItemProps = {
 
 function MenuItem({
   menuIcon,
+  menuImage,
   menuIconColor = "maintext",
   menuTitle,
   onPress,
@@ -337,21 +363,33 @@ function MenuItem({
     <Pressable style={styles.menuButton} onPress={onPress} disabled={isVersion}>
       <View style={styles.menuItemLayout}>
         <View style={styles.menuItemIntro}>
-          <Feather
-            name={menuIcon}
-            size={23}
-            color={Colors[menuIconColor]}
-          ></Feather>
+          {menuImage ? (
+            <Image
+              source={menuImage}
+              contentFit="contain"
+              style={styles.menuIconImage}
+              accessible={false}
+            />
+          ) : menuIcon ? (
+            <Feather
+              name={menuIcon}
+              size={23}
+              color={Colors[menuIconColor]}
+            />
+          ) : null}
           <Text style={styles.menuItem}>{menuTitle}</Text>
+          {isVersion && (
+            <Text style={styles.menuVersion}>{`v${APP_VERSION}`}</Text>
+          )}
         </View>
-        <Text
-          style={[
-            styles.menuItem,
-            { fontFamily: isVersion ? Fonts.bodyDesc : Fonts.bodySemiBold },
-          ]}
-        >
-          {isVersion ? `v${APP_VERSION}` : ">"}
-        </Text>
+        {!isVersion && (
+          <Image
+            source={require("@/assets/images/arrow.png")}
+            contentFit="contain"
+            style={styles.menuArrow}
+            accessible={false}
+          />
+        )}
       </View>
     </Pressable>
   );
@@ -360,43 +398,44 @@ function MenuItem({
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    backgroundColor: "rgba(0, 0, 0, 0.15)",
   },
   panel: {
     position: "absolute",
     top: 0,
     right: 0,
     bottom: 0,
-    width: "80%",
+    width: "77.61%",
     maxWidth: 500,
     backgroundColor: Colors.background,
-    borderTopLeftRadius: 20,
-    borderBottomLeftRadius: 20,
+    borderTopLeftRadius: 30,
+    borderBottomLeftRadius: 30,
   },
   profileBack: {
     backgroundColor: Colors.backOrange,
     width: "100%",
-    borderTopLeftRadius: 20,
+    borderTopLeftRadius: 30,
     paddingLeft: 24,
     paddingTop: 61,
     paddingBottom: 21,
-    marginBottom: 71,
+    marginBottom: 12,
   },
   profileEditLayout: {
     flexDirection: "row",
     alignItems: "flex-end",
+    marginLeft: -7,
     marginBottom: 13,
   },
   profileIconSec: {
     width: 85,
     height: 85,
     borderRadius: 100,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.background,
   },
   profileEditButton: {
     width: 31,
     height: 31,
-    transform: [{ translateX: -20 }],
+    transform: [{ translateX: -22 }],
   },
   userNameSec: {
     flexDirection: "row",
@@ -414,7 +453,7 @@ const styles = StyleSheet.create({
   },
   profileDesc: {
     fontFamily: Fonts.bodyDesc,
-    fontSize: 19,
+    fontSize: 19.73,
     color: Colors.textBrown,
   },
   menuStart: {
@@ -422,23 +461,21 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   menuEnd: {
-    borderColor: Colors.backOrange,
-    borderTopWidth: 1,
     marginBottom: 36,
   },
   menuTitle: {
     fontFamily: Fonts.bodySemiBold,
-    fontSize: 19,
-    color: Colors.textBrown,
+    fontSize: 19.74,
+    color: "rgba(106, 57, 7, 0.8)",
     marginLeft: 18,
     marginBottom: 12,
   },
   menuButton: {
     width: "100%",
+    minHeight: 50,
+    justifyContent: "center",
     borderColor: Colors.backOrange,
-    borderTopWidth: 1,
     borderBottomWidth: 1,
-    paddingVertical: 12,
   },
   menuItemLayout: {
     flexDirection: "row",
@@ -452,25 +489,42 @@ const styles = StyleSheet.create({
     gap: 14,
     alignItems: "center",
   },
+  menuIconImage: {
+    width: 26,
+    height: 26,
+  },
+  menuArrow: {
+    width: 28 / 3,
+    height: 32 / 3,
+    flexShrink: 0,
+  },
   menuItem: {
-    fontFamily: Fonts.bodySemiBold,
+    fontFamily: Fonts.bodyRegular,
     fontSize: 16,
     color: Colors.textBrown,
     alignItems: "center",
   },
+  menuVersion: {
+    fontFamily: Fonts.bodyDesc,
+    fontSize: 17.27,
+    color: Colors.textBrown,
+    flexShrink: 0,
+  },
   kakaoLogo: {
-    width: 70,
-    height: 26,
+    width: 28,
+    height: 28,
     flexShrink: 0,
   },
   accountActions: {
     marginTop: "auto",
+    flexShrink: 0,
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 32,
   },
   logoutButton: {
-    alignSelf: "flex-start",
+    alignSelf: "center",
     paddingVertical: 12,
     paddingHorizontal: 8,
   },
@@ -478,8 +532,51 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   logoutText: {
-    fontFamily: Fonts.bodySemiBold,
-    fontSize: 16,
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 15,
+    color: Colors.textSecondary,
+  },
+  closeButton: {
+    position: "absolute",
+    top: 29,
+    right: 16,
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+  },
+  kakaoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 19,
+    minHeight: 47,
+    marginHorizontal: 6,
+    marginTop: 12,
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.backOrange,
+    borderRadius: 12
+  },
+  kakaoAccountTitle: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 12.71,
+    color: Colors.maintext,
+  },
+  kakaoAccountStatus: {
+    marginTop: 2,
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 9.39,
     color: Colors.textBrown,
+  },
+  menuScroll: {
+    flex: 1,
+    minHeight: 0,
+  },
+  menuScrollContent: {
+    paddingBottom: 12,
   },
 });
