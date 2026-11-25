@@ -130,6 +130,7 @@ export default function NearbyPlacesScreen() {
                                 <NearbyPlacesMap
                                     latitude={currentLocation.latitude}
                                     longitude={currentLocation.longitude}
+                                    places={data?.places ?? []}
                                     dom={{
                                         scrollEnabled: false,
                                         style: { width: "100%", height: 236 },
