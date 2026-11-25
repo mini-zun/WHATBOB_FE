@@ -2,8 +2,9 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import NearbyPlacesMap from "@/components/places/NearbyPlacesMap";
 import { Colors, Fonts } from "@/constants/theme";
-import { getCurrentLocation } from "@/lib/location";
+import { getCurrentLocation, type CurrentLocation } from "@/lib/location";
 import { getNearbyPlaces } from "@/lib/places";
 import type { NearbyPlacesData, SearchRadius } from "@/types/places";
 
@@ -18,6 +19,7 @@ export default function NearbyPlacesScreen() {
     const [error, setError] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [radius, setRadius] = useState<SearchRadius>(1000);
+    const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(null);
 
     const parsedMenuId = Number(menuId);
     const isValidMenu = typeof menuId === "string" &&
@@ -33,11 +35,14 @@ export default function NearbyPlacesScreen() {
             setIsLoading(true);
             setError(null);
             setData(null);
+            setCurrentLocation(null);
 
             try {
                 const location = await getCurrentLocation();
 
                 if (controller.signal.aborted) return;
+
+                setCurrentLocation(location);
 
                 const result = await getNearbyPlaces(
                     {
@@ -120,6 +125,18 @@ export default function NearbyPlacesScreen() {
                                 </Pressable>
                             ))}
                         </View>
+                        {currentLocation && (
+                            <View style={{ height: 236, flexShrink: 0 }}>
+                                <NearbyPlacesMap
+                                    latitude={currentLocation.latitude}
+                                    longitude={currentLocation.longitude}
+                                    dom={{
+                                        scrollEnabled: false,
+                                        style: { width: "100%", height: 236 },
+                                    }}
+                                />
+                            </View>
+                        )}
                         {isLoading ? (
                             <Text accessibilityState={{ busy: true }}>
                                 현재 위치와 주변 음식점을 확인하고 있어요.
