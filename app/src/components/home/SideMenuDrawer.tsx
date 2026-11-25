@@ -100,7 +100,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
     setNicknameSaving(true);
     try {
       const updated = await updateMyNickname(nicknameDraft);
-      syncSessionUser(updated);
+      syncSessionUser(updated, "nickname");
       setIsEditingNickname(false);
       showToast("닉네임을 변경했어요.");
     } catch (error) {
@@ -171,7 +171,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
       );
       setProfileImageOverride(prepared);
       const updated = await uploadMyProfileImage(prepared);
-      syncSessionUser(updated);
+      syncSessionUser(updated, "profile_image");
       showToast("프로필 사진을 변경했어요.");
     } catch (error) {
       setProfileImageOverride(undefined);
@@ -191,7 +191,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
     setProfileImageOverride(null);
     try {
       const updated = await resetMyProfileImage();
-      syncSessionUser(updated);
+      syncSessionUser(updated, "profile_image");
       showToast("기본 이미지로 변경했어요.");
     } catch (error) {
       setProfileImageOverride(undefined);

@@ -161,7 +161,12 @@ export function getProfileImageErrorMessage(error: unknown): string {
   return "프로필 사진을 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.";
 }
 
-export function syncSessionUser(user: UserProfile): void {
+type SessionProfileField = "nickname" | "profile_image";
+
+export function syncSessionUser(
+  user: UserProfile,
+  field: SessionProfileField,
+): void {
   if (Platform.OS !== "web") return; // TODO: 네이티브 세션 저장소가 생기면 함께 갱신
 
   const session = readWebSession();
@@ -171,8 +176,7 @@ export function syncSessionUser(user: UserProfile): void {
     ...session,
     user: {
       ...session.user,
-      nickname: user.nickname,
-      profile_image: user.profile_image,
+      [field]: user[field],
     },
   });
 }
