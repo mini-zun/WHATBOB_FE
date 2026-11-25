@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentProps } from "react";
 import {
+  ActivityIndicator,
   BackHandler,
+  Linking,
   Pressable,
   StyleSheet,
   ScrollView,
@@ -29,13 +31,24 @@ import { completeLogout, LogoutRestartRequiredError } from "@/lib/logout";
 import { isLogoutInProgress } from "@/lib/auth_operation";
 import { ApiError } from "@/lib/api";
 import { useToast } from "@/components/common/Toast";
+import { PopUpBox } from "./PopUpMessage";
+import { ProfileImageSheet } from "./ProfileImageSheet";
 import {
   getNicknameErrorMessage,
+  getProfileImageErrorMessage,
+  resetMyProfileImage,
+  resolveProfileImageUrl,
   syncSessionUser,
   updateMyNickname,
+  uploadMyProfileImage,
   validateNickname,
   NICKNAME_MAX_LENGTH,
 } from "@/lib/profile_edit";
+import {
+  pickProfileImage,
+  prepareProfileImage,
+  type ProfileImageSource,
+} from "@/lib/profile_image_picker";
 
 type Props = {
   visible: boolean;
@@ -102,6 +115,103 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
     if (!visible) cancelNicknameEdit();
   }, [visible, cancelNicknameEdit]);
 
+  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
+  const [cameraSettingsOpen, setCameraSettingsOpen] = useState(false);
+  const [profileImageBusy, setProfileImageBusy] = useState(false);
+  const [profileImageOverride, setProfileImageOverride] = useState<
+    string | null | undefined
+  >(undefined);
+
+  const profileImageBusyRef = useRef(false);
+
+  const handleOpenProfileSheet = () => {
+    if (
+      logoutOpen ||
+      isLogoutInProgress() ||
+      isEditingNickname ||
+      profileImageBusyRef.current
+    ) {
+      return;
+    }
+    setProfileSheetOpen(true);
+  };
+
+  const closeProfileSheet = useCallback(() => setProfileSheetOpen(false), []);
+
+  const handleSelectProfileImage = async (source: ProfileImageSource) => {
+    setProfileSheetOpen(false);
+    if (profileImageBusyRef.current) return;
+
+    let picked: Awaited<ReturnType<typeof pickProfileImage>>;
+    try {
+      picked = await pickProfileImage(source);
+    } catch {
+      showToast("사진을 불러오지 못했어요. 다시 시도해 주세요.");
+      return;
+    }
+
+    if (picked.status === "canceled") return;
+
+    if (picked.status === "permission-denied") {
+      if (picked.canAskAgain) {
+        showToast("카메라 권한을 허용해야 촬영할 수 있어요.");
+      } else {
+        setCameraSettingsOpen(true);
+      }
+      return;
+    }
+
+    profileImageBusyRef.current = true;
+    setProfileImageBusy(true);
+    try {
+      const prepared = await prepareProfileImage(
+        picked.uri,
+        picked.width,
+        picked.height,
+      );
+      setProfileImageOverride(prepared);
+      const updated = await uploadMyProfileImage(prepared);
+      syncSessionUser(updated);
+      showToast("프로필 사진을 변경했어요.");
+    } catch (error) {
+      setProfileImageOverride(undefined);
+      showToast(getProfileImageErrorMessage(error));
+    } finally {
+      profileImageBusyRef.current = false;
+      setProfileImageBusy(false);
+    }
+  };
+
+  const handleResetProfileImage = async () => {
+    setProfileSheetOpen(false);
+    if (profileImageBusyRef.current) return;
+
+    profileImageBusyRef.current = true;
+    setProfileImageBusy(true);
+    setProfileImageOverride(null);
+    try {
+      const updated = await resetMyProfileImage();
+      syncSessionUser(updated);
+      showToast("기본 이미지로 변경했어요.");
+    } catch (error) {
+      setProfileImageOverride(undefined);
+      showToast(getProfileImageErrorMessage(error));
+    } finally {
+      profileImageBusyRef.current = false;
+      setProfileImageBusy(false);
+    }
+  };
+
+  const handleOpenCameraSettings = () => {
+    setCameraSettingsOpen(false);
+    Linking.openSettings();
+  };
+
+  const closeCameraSettings = useCallback(
+    () => setCameraSettingsOpen(false),
+    [],
+  );
+
   const handleOpenLogout = () => {
     if (logoutBusyRef.current) return;
 
@@ -126,6 +236,16 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
   };
 
   const handleDrawerClose = () => {
+    if (cameraSettingsOpen) {
+      closeCameraSettings();
+      return;
+    }
+
+    if (profileSheetOpen) {
+      closeProfileSheet();
+      return;
+    }
+
     if (logoutOpen) {
       handleCancelLogout();
       return;
@@ -136,7 +256,13 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
       return;
     }
 
-    if (logoutBusyRef.current || isLogoutInProgress()) return;
+    if (
+      profileImageBusyRef.current ||
+      logoutBusyRef.current ||
+      isLogoutInProgress()
+    ) {
+      return;
+    }
     onClose();
   };
 
@@ -184,7 +310,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
   const [prevVisible, setPrevVisible] = useState(visible);
   if (visible !== prevVisible) {
     setPrevVisible(visible);
-    if (visible) setPendingPath(null);
+    if (visible) {
+      setPendingPath(null);
+      setProfileImageOverride(undefined);
+    }
   }
 
   useEffect(() => {
@@ -211,6 +340,16 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
   useEffect(() => {
     if (!visible) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (cameraSettingsOpen) {
+        closeCameraSettings();
+        return true;
+      }
+
+      if (profileSheetOpen) {
+        closeProfileSheet();
+        return true;
+      }
+
       if (logoutOpen) {
         if (
           !logoutBusyRef.current &&
@@ -229,7 +368,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         return true;
       }
 
-      if (!isLogoutInProgress()) onClose();
+      if (!profileImageBusyRef.current && !isLogoutInProgress()) onClose();
       return true;
     });
     return () => sub.remove();
@@ -240,6 +379,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
     logoutCanCancel,
     isEditingNickname,
     cancelNicknameEdit,
+    profileSheetOpen,
+    closeProfileSheet,
+    cameraSettingsOpen,
+    closeCameraSettings,
   ]);
 
   if (!visible) return null;
@@ -249,7 +392,11 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
       ? readWebSession()?.user
       : null;
   const nickname = user?.nickname?.trim() || "사용자";
-  const profileimage = user?.profile_image?.trim();
+  const remoteProfileImage = resolveProfileImageUrl(user?.profile_image);
+  const displayedProfileImage =
+    profileImageOverride === undefined
+      ? remoteProfileImage
+      : profileImageOverride;
   const canLinkKakao = !!user && user.kakao_id === null;
   const isKakaoLinked = typeof user?.kakao_id === "number";
 
@@ -283,24 +430,40 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           >
             <Feather name="arrow-right" size={26} color={Colors.textBrown} />
           </Pressable>
-          <View style={styles.profileEditLayout}>
+          <Pressable
+            style={styles.profileEditLayout}
+            onPress={handleOpenProfileSheet}
+            disabled={profileImageBusy}
+            accessibilityRole="button"
+            accessibilityLabel="프로필 사진 변경"
+            accessibilityState={{ disabled: profileImageBusy, busy: profileImageBusy }}
+          >
+            <View style={styles.profileIconSec}>
+              {displayedProfileImage ? (
+                <Image
+                  source={{ uri: displayedProfileImage }}
+                  contentFit="cover"
+                  style={styles.profileImageFill}
+                />
+              ) : (
+                <Image
+                  source={require("@/assets/images/profile_default.png")}
+                  contentFit="contain"
+                  style={styles.profileDefaultIcon}
+                />
+              )}
+              {profileImageBusy && (
+                <View style={styles.profileImageOverlay}>
+                  <ActivityIndicator color={Colors.white} />
+                </View>
+              )}
+            </View>
             <Image
-              source={
-                profileimage
-                  ? { uri: profileimage }
-                  : require("@/assets/images/profile_default.png")
-              }
-              contentFit="cover"
-              style={styles.profileIconSec}
+              source={require("@/assets/images/profile_edit_btn.png")}
+              contentFit="contain"
+              style={styles.profileEditButton}
             />
-            <Pressable>
-              <Image
-                source={require("@/assets/images/profile_edit_btn.png")}
-                contentFit="contain"
-                style={styles.profileEditButton}
-              />
-            </Pressable>
-          </View>
+          </Pressable>
           <View style={styles.userNameSec}>
             {isEditingNickname ? (
               <>
@@ -451,6 +614,22 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         onCancel={handleCancelLogout}
         onConfirm={handleConfirmLogout}
       />
+      <ProfileImageSheet
+        visible={profileSheetOpen}
+        canReset={remoteProfileImage !== null}
+        onSelectCamera={() => handleSelectProfileImage("camera")}
+        onSelectLibrary={() => handleSelectProfileImage("library")}
+        onReset={handleResetProfileImage}
+        onClose={closeProfileSheet}
+      />
+      <PopUpBox
+        visible={cameraSettingsOpen}
+        message={"카메라 권한이 꺼져 있어요.\n설정에서 허용해 주세요."}
+        leftButtonText="설정으로 이동"
+        rightButtonText="취소"
+        onLeftButtonClick={handleOpenCameraSettings}
+        onRightButtonClick={closeCameraSettings}
+      />
     </>
   );
 }
@@ -530,6 +709,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   profileEditLayout: {
+    alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "flex-end",
     marginLeft: -7,
@@ -538,8 +718,25 @@ const styles = StyleSheet.create({
   profileIconSec: {
     width: 85,
     height: 85,
-    borderRadius: 100,
+    borderRadius: 42.5,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: Colors.background,
+  },
+  profileImageFill: {
+    width: "100%",
+    height: "100%",
+  },
+  profileDefaultIcon: {
+    width: 50,
+    height: 50,
+  },
+  profileImageOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.35)",
   },
   profileEditButton: {
     width: 31,

@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-import { ApiError, apiFetch } from "./api";
+import { ApiError, apiFetch, getApiBaseUrl } from "./api";
 import { readWebSession, saveWebSession } from "./web-auth";
 
 export type UserProfile = {
@@ -74,6 +74,91 @@ export function getNicknameErrorMessage(error: unknown): string {
     }
   }
   return "닉네임을 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.";
+}
+
+const DEFAULT_PROFILE_IMAGE_PATH = "/static/default-profile.svg";
+const PROFILE_IMAGE_UPLOAD_TIMEOUT = 30000;
+
+export function resolveProfileImageUrl(
+  url: string | null | undefined,
+): string | null {
+  const value = url?.trim();
+  if (!value || value.endsWith(DEFAULT_PROFILE_IMAGE_PATH)) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (!value.startsWith("/")) return null;
+
+  try {
+    return `${getApiBaseUrl()}${value}`;
+  } catch {
+    return null;
+  }
+}
+
+async function toUploadFile(uri: string): Promise<Blob> {
+  if (Platform.OS === "web") {
+    const response = await fetch(uri);
+    return response.blob();
+  }
+  return { uri, name: "profile.jpg", type: "image/jpeg" } as unknown as Blob;
+}
+
+export async function uploadMyProfileImage(
+  uri: string,
+  signal?: AbortSignal,
+): Promise<UserProfile> {
+  const formData = new FormData();
+  formData.append("file", await toUploadFile(uri), "profile.jpg");
+
+  const result = await apiFetch<unknown>("/api/users/me/profile-image", {
+    method: "PUT",
+    body: formData,
+    signal,
+    timeout: PROFILE_IMAGE_UPLOAD_TIMEOUT,
+  });
+
+  if (!isUserProfile(result)) {
+    throw new Error("프로필 사진 변경에 실패했습니다.");
+  }
+  return result;
+}
+
+export async function resetMyProfileImage(
+  signal?: AbortSignal,
+): Promise<UserProfile> {
+  const result = await apiFetch<unknown>("/api/users/me/profile-image", {
+    method: "DELETE",
+    signal,
+  });
+
+  if (!isUserProfile(result)) {
+    throw new Error("프로필 사진 변경에 실패했습니다.");
+  }
+  return result;
+}
+
+export function getProfileImageErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    switch (error.code) {
+      case "IMAGE_TOO_LARGE":
+        return "5MB 이하의 사진만 올릴 수 있어요.";
+      case "UNSUPPORTED_IMAGE_FORMAT":
+        return "JPG, PNG, WebP 사진만 올릴 수 있어요.";
+      case "IMAGE_DIMENSIONS_EXCEEDED":
+        return "해상도가 너무 큰 사진이에요.";
+      case "ANIMATED_IMAGE_NOT_ALLOWED":
+        return "움직이는 이미지는 사용할 수 없어요.";
+      case "INVALID_IMAGE_FILE":
+      case "EMPTY_IMAGE_FILE":
+        return "사진을 읽을 수 없어요. 다른 사진을 선택해 주세요.";
+    }
+    if (error.status === 413) {
+      return "5MB 이하의 사진만 올릴 수 있어요.";
+    }
+    if (error.status === 0) {
+      return "연결을 확인하고 다시 시도해 주세요.";
+    }
+  }
+  return "프로필 사진을 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.";
 }
 
 export function syncSessionUser(user: UserProfile): void {
