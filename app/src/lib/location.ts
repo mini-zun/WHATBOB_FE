@@ -6,8 +6,7 @@ export type CurrentLocation = {
 };
 
 export async function getCurrentLocation(): Promise<CurrentLocation> {
-    const permission = await
-    Location.requestBackgroundPermissionsAsync();
+    const permission = await Location.requestForegroundPermissionsAsync();
 
     if(!permission.granted) {
         throw new Error(permission.canAskAgain ? "주변 음식점을 찾으려면 위치 권한을 허용해 주세요." : "앱 또는 브라우저 설정에서 위치 권한을 허용해 주세요.",);
