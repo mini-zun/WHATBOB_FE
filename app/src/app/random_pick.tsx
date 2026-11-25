@@ -234,7 +234,11 @@ export default function PickWithFriendScreen() {
               />
             </Animated.View>
             <Image
-              source={require("@/assets/images/whatbob_icon.png")}
+              source={
+                !menuError && menu?.image_url
+                  ? menu.image_url
+                  : require("@/assets/images/whatbob_icon.png")
+              }
               contentFit="contain"
               style={[
                 styles.resultImage,
