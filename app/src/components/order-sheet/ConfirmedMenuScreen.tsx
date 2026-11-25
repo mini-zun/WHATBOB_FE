@@ -9,9 +9,10 @@ import type { RecommendedMenu } from "@/types/order_sheet";
 type Props = {
     menu: RecommendedMenu;
     onBack: () => void;
+    onOpenMap: () => void;
 };
 
-export default function ConfirmedMenuScreen({ menu, onBack }: Props) {
+export default function ConfirmedMenuScreen({ menu, onBack, onOpenMap }: Props) {
     return (
         <SafeAreaView style={styles.safeArea}>
             <ScrollView
@@ -50,10 +51,9 @@ export default function ConfirmedMenuScreen({ menu, onBack }: Props) {
 
                     <Pressable
                         style={styles.mapButton}
-                        disabled
+                        onPress={onOpenMap}
                         accessibilityRole="button"
-                        accessibilityState={{ disabled: true }}
-                        accessibilityHint="지도 기능은 준비 중입니다."
+                        accessibilityLabel="지도에서 위치보기"
                     >
                         <Text style={styles.mapButtonText}>
                             📍 지도에서 위치보기 &gt;
