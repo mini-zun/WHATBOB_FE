@@ -48,6 +48,11 @@ export function getApiBaseUrl(): string {
   return apiBaseUrl.replace(/\/$/, "");
 }
 
+export function resolveAssetUrl(url: string): string {
+  if (!url || /^https?:\/\//.test(url)) return url;
+  return `${getApiBaseUrl()}${url.startsWith("/") ? "" : "/"}${url}`;
+}
+
 function getApiHeaders(apiBaseUrl: string): Record<string, string> {
   const hostname = new URL(apiBaseUrl).hostname;
   return hostname.endsWith(".ngrok-free.dev")
