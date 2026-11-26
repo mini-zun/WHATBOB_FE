@@ -20,6 +20,7 @@ export default function NearbyPlacesScreen() {
     const [retryCount, setRetryCount] = useState(0);
     const [radius, setRadius] = useState<SearchRadius>(1000);
     const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(null);
+    const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
 
     const parsedMenuId = Number(menuId);
     const isValidMenu = typeof menuId === "string" &&
@@ -35,6 +36,7 @@ export default function NearbyPlacesScreen() {
             setIsLoading(true);
             setError(null);
             setData(null);
+            setSelectedPlaceId(null);
             setCurrentLocation(null);
 
             try {
@@ -131,6 +133,7 @@ export default function NearbyPlacesScreen() {
                                     latitude={currentLocation.latitude}
                                     longitude={currentLocation.longitude}
                                     places={data?.places ?? []}
+                                    selectedPlaceId={selectedPlaceId}
                                     dom={{
                                         scrollEnabled: false,
                                         style: { width: "100%", height: 236 },
@@ -167,13 +170,21 @@ export default function NearbyPlacesScreen() {
                                     <Text>주변에 검색된 음식점이 없어요.</Text>
                                 ) : (
                                     data.places.map((place, index) => (
-                                        <View key={place.kakao_place_id} style={styles.placeItem}>
+                                        <Pressable
+                                            key={place.kakao_place_id}
+                                            accessibilityRole="button"
+                                            accessibilityState={{
+                                                selected: selectedPlaceId === place.kakao_place_id,
+                                            }}
+                                            onPress={() => setSelectedPlaceId(place.kakao_place_id)}
+                                            style={styles.placeItem}
+                                        >
                                             <Text>{index + 1}. {place.name}</Text>
                                             <Text>
                                                 {place.road_address || place.address || "주소 정보 없음"}
                                             </Text>
                                             <Text>직선거리 {place.distance_m}m</Text>
-                                        </View>
+                                        </Pressable>
                                     ))
                                 )}
                             </ScrollView>

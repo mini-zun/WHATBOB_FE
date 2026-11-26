@@ -10,15 +10,18 @@ type Props = {
     longitude: number;
     dom?: DOMProps;
     places: NearbyPlace[];
+    selectedPlaceId: string | null;
 };
 
 export default function NearbyPlacesMap({
     latitude,
     longitude,
     places,
+    selectedPlaceId,
 }: Props) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [error, setError] = useState<string | null>(null);
+    const [mapInstance, setMapInstance] = useState<kakao.maps.Map | null>(null);
 
     useEffect(() => {
         const container = containerRef.current;
@@ -127,6 +130,8 @@ export default function NearbyPlacesMap({
                 if(places.length > 0) {
                     map.setBounds(bounds, 40,40,40,40);
                 }
+
+                setMapInstance(map);
             } catch (error) {
                 if (cancelled) return;
 
@@ -142,6 +147,7 @@ export default function NearbyPlacesMap({
 
         return () => {
             cancelled = true;
+            setMapInstance(null);
 
             overlays.forEach((overlays) => {
                 overlays.setMap(null);
@@ -149,6 +155,23 @@ export default function NearbyPlacesMap({
             container.replaceChildren();
         };
     }, [latitude, longitude, places]);
+
+    useEffect(() => {
+        if (!mapInstance || !selectedPlaceId) return;
+
+        const selectedPlace = places.find(
+            (place) => place.kakao_place_id === selectedPlaceId,
+        );
+
+        if (!selectedPlace) return;
+
+        mapInstance.panTo(
+            new kakao.maps.LatLng(
+                selectedPlace.latitude,
+                selectedPlace.longitude,
+            ),
+        );
+    }, [mapInstance, selectedPlaceId, places]);
 
     return (
         <div style={{ width: "100%", height: 236 }}>
