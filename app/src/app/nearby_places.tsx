@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import NearbyPlacesMap from "@/components/places/NearbyPlacesMap";
 import { Colors, Fonts } from "@/constants/theme";
@@ -134,6 +134,9 @@ export default function NearbyPlacesScreen() {
                                     longitude={currentLocation.longitude}
                                     places={data?.places ?? []}
                                     selectedPlaceId={selectedPlaceId}
+                                    onSelectPlace={async (placeId) => {
+                                        setSelectedPlaceId(placeId);
+                                    }}
                                     dom={{
                                         scrollEnabled: false,
                                         style: { width: "100%", height: 236 },

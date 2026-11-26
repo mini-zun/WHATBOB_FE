@@ -11,6 +11,7 @@ type Props = {
     dom?: DOMProps;
     places: NearbyPlace[];
     selectedPlaceId: string | null;
+    onSelectPlace: (placeId: string) => Promise<void>;
 };
 
 export default function NearbyPlacesMap({
@@ -18,10 +19,16 @@ export default function NearbyPlacesMap({
     longitude,
     places,
     selectedPlaceId,
+    onSelectPlace,
 }: Props) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [error, setError] = useState<string | null>(null);
     const [mapInstance, setMapInstance] = useState<kakao.maps.Map | null>(null);
+    const onSelectPlaceRef = useRef(onSelectPlace);
+
+    useEffect(() => {
+        onSelectPlaceRef.current = onSelectPlace;
+    }, [onSelectPlace]);
 
     useEffect(() => {
         const container = containerRef.current;
@@ -111,6 +118,12 @@ export default function NearbyPlacesMap({
                         map.setLevel(Math.max(1, map.getLevel() - 1), {
                             anchor: position,
                         });
+
+                        void onSelectPlaceRef.current(place.kakao_place_id).catch(
+                            (error) => {
+                                console.error("음식점 선택 전달 실패", error);
+                            },
+                        );
                     };
 
                     overlays.push(
