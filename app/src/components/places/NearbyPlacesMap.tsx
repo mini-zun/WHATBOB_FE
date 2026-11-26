@@ -9,6 +9,7 @@ import { Asset } from "expo-asset";
 type Props = {
     latitude: number;
     longitude: number;
+    height?: number;
     dom?: DOMProps;
     places: NearbyPlace[];
     selectedPlaceId: string | null;
@@ -18,6 +19,7 @@ type Props = {
 export default function NearbyPlacesMap({
     latitude,
     longitude,
+    height = 236,
     places,
     selectedPlaceId,
     onSelectPlace,
@@ -98,8 +100,8 @@ export default function NearbyPlacesMap({
                     );
 
                     Object.assign(marker.style, {
-                        width: "32px",
-                        height: "43px",
+                        width: "22px",
+                        height: "33px",
                         backgroundImage: `url("${markerImageUrl}")`,
                         backgroundSize: "contain",
                         backgroundRepeat: "no-repeat",
@@ -182,7 +184,7 @@ export default function NearbyPlacesMap({
     }, [mapInstance, selectedPlaceId, places]);
 
     return (
-        <div style={{ width: "100%", height: 236 }}>
+        <div style={{ width: "100%", height }}>
             {error && <p role="alert">{error}</p>}
             <div
                 ref={containerRef}
