@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { Image } from "expo-image";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import NearbyPlacesMap from "@/components/places/NearbyPlacesMap";
@@ -8,12 +8,15 @@ import NearbyPlacesTitle from "@/components/places/NearbyPlacesTitle";
 import { Colors, Fonts } from "@/constants/theme";
 import { getCurrentLocation, type CurrentLocation } from "@/lib/location";
 import { getNearbyPlaces } from "@/lib/places";
+import { getFoodHistoryOperationKey, recordFoodHistory } from "@/lib/food_history";
 import type { NearbyPlacesData, SearchRadius } from "@/types/places";
 
 export default function NearbyPlacesScreen() {
-    const { menuId, menuName } = useLocalSearchParams<{
+    const { menuId, menuName, recommendationId, mealKey } = useLocalSearchParams<{
         menuId?: string;
         menuName?: string;
+        recommendationId?: string;
+        mealKey?: string;
     }>();
 
     const [data, setData] = useState<NearbyPlacesData | null>(null);
@@ -24,11 +27,59 @@ export default function NearbyPlacesScreen() {
     const [radiusMenuOpen, setRadiusMenuOpen] = useState(false);
     const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(null);
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+    const saveInFlight = useRef(false);
+    const savedKeys = useRef(new Set<string>());
+    const [mealSave, setMealSave] = useState<{
+        key: string;
+        status: "saving" | "saved" | "error";
+        error?: string;
+    } | null>(null);
 
     const parsedMenuId = Number(menuId);
     const isValidMenu = typeof menuId === "string" &&
         Number.isSafeInteger(parsedMenuId) &&
         parsedMenuId > 0;
+
+    const operationKey = isValidMenu
+        ? getFoodHistoryOperationKey(parsedMenuId, recommendationId, mealKey)
+        : null;
+    const mealStatus = mealSave?.key === operationKey ? mealSave : null;
+
+    useEffect(() => {
+        if (!isValidMenu || operationKey) return;
+        router.setParams({
+            mealKey: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`,
+        });
+    }, [isValidMenu, operationKey]);
+
+    const handleChoosePlace = useCallback(async (placeId: string) => {
+        if (!operationKey || saveInFlight.current) return;
+
+        setSelectedPlaceId(placeId);
+        if (savedKeys.current.has(operationKey)) {
+            setMealSave({ key: operationKey, status: "saved" });
+            return;
+        }
+
+        saveInFlight.current = true;
+        setMealSave({ key: operationKey, status: "saving" });
+
+        try {
+            await recordFoodHistory(parsedMenuId, operationKey);
+            savedKeys.current.add(operationKey);
+            setMealSave({ key: operationKey, status: "saved" });
+        } catch (error) {
+            setMealSave({
+                key: operationKey,
+                status: "error",
+                error: error instanceof Error
+                    ? error.message
+                    : "먹은 음식 기록을 저장하지 못했어요. 음식점을 다시 눌러 주세요.",
+            });
+        } finally {
+            saveInFlight.current = false;
+        }
+    }, [operationKey, parsedMenuId]);
 
     useEffect(() => {
         if (!isValidMenu) return;
@@ -174,8 +225,8 @@ export default function NearbyPlacesScreen() {
                                 {isLoading
                                     ? "검색 중…"
                                     : data
-                                      ? `가까운 순 · ${data.places.length}곳`
-                                      : "가까운 순"}
+                                        ? `가까운 순 · ${data.places.length}곳`
+                                        : "가까운 순"}
                             </Text>
                             {currentLocation && (
                                 <View style={styles.mapFrame}>
@@ -212,6 +263,19 @@ export default function NearbyPlacesScreen() {
                                 </View>
                             ) : data ? (
                                 <View style={styles.list}>
+                                    {mealStatus && (
+                                        <Text
+                                            accessibilityRole={mealStatus.status === "error" ? "alert" : undefined}
+                                            accessibilityLiveRegion="polite"
+                                            style={mealStatus.status === "error" ? styles.saveError : styles.saveMessage}
+                                        >
+                                            {mealStatus.status === "saving"
+                                                ? "먹은 음식 기록을 저장하고 있어요."
+                                                : mealStatus.status === "saved"
+                                                    ? "먹은 음식 기록에 저장했어요."
+                                                    : `${mealStatus.error} 음식점을 다시 누르면 재시도해요.`}
+                                        </Text>
+                                    )}
                                     {data.places.length === 0 ? (
                                         <Text>주변에 검색된 음식점이 없어요.</Text>
                                     ) : (
@@ -221,8 +285,12 @@ export default function NearbyPlacesScreen() {
                                                 accessibilityRole="button"
                                                 accessibilityState={{
                                                     selected: selectedPlaceId === place.kakao_place_id,
+                                                    disabled: !operationKey || mealStatus?.status === "saving",
                                                 }}
-                                                onPress={() => setSelectedPlaceId(place.kakao_place_id)}
+                                                disabled={!operationKey || mealStatus?.status === "saving"}
+                                                onPress={() => {
+                                                    void handleChoosePlace(place.kakao_place_id);
+                                                }}
                                                 style={styles.placeItem}
                                             >
                                                 <Text style={styles.placeName} numberOfLines={1}>
@@ -230,7 +298,7 @@ export default function NearbyPlacesScreen() {
                                                 </Text>
                                                 <View style={styles.placeBottomRow}>
                                                     <Text style={styles.placeDistance}>
-                                                        직선 {(place.distance_m / 1000).toFixed(1)}km
+                                                       도보 {(place.distance_m / 1000).toFixed(1)}km
                                                     </Text>
                                                 </View>
                                             </Pressable>
@@ -378,6 +446,16 @@ const styles = StyleSheet.create({
         borderColor: "rgba(119, 119, 119, 0.2)",
         backgroundColor: "rgba(249, 239, 221, 0.2)",
         gap: 2,
+    },
+
+    saveMessage: {
+        fontFamily: Fonts.bodyRegular,
+        color: Colors.textBrown,
+    },
+
+    saveError: {
+        fontFamily: Fonts.bodyRegular,
+        color: Colors.errorText,
     },
 
     placeName: {

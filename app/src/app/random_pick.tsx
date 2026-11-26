@@ -19,6 +19,7 @@ import { scheduleOnRN } from "react-native-worklets";
 
 import { getRandomMenu, type RandomMenu } from "@/lib/random_menu";
 import { getAuthRestartMessage } from "@/lib/auth_recovery";
+import FoodIllustration from "@/components/FoodIllustration";
 
 
 const handleBack = () => {
@@ -181,9 +182,10 @@ export default function PickWithFriendScreen() {
                 style={[styles.dish, { opacity: topOpen ? 1 : 0 }]}
               />
             </Animated.View>
-            <Image
-              source={require("@/assets/images/whatbob_icon.png")}
-              contentFit="contain"
+            <FoodIllustration
+              imageKey={menu?.menu_id}
+              imageUrl={menu?.image_url}
+              accessibilityLabel={menu?.name ?? "추천 음식"}
               style={[
                 styles.resultImage,
                 styles.overlay,

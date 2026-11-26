@@ -1,10 +1,11 @@
-import { ApiError, apiFetch } from "./api";
+import { ApiError, apiFetch, resolveAssetUrl } from "./api";
 
 export type RandomMenu = {
   menu_id: number;
   food_code: string;
   name: string;
   base_name: string;
+  image_url?: string | null;
 };
 
 type RandomMenuResponse = {
@@ -24,7 +25,10 @@ async function fetchRandomMenu(query: string, signal?: AbortSignal) {
       0,
     );
   }
-  return result.data.selected_menu;
+  return {
+    ...result.data.selected_menu,
+    image_url: resolveAssetUrl(result.data.selected_menu.image_url),
+  };
 }
 
 const MAX_RETRY = 3;

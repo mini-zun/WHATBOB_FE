@@ -19,6 +19,62 @@ type FoodHistoryResponse = {
   message: string | null;
 };
 
+type FoodHistoryCreateResponse = {
+  success: boolean;
+  data: FoodHistory | null;
+  message: string | null;
+};
+
+export function getFoodHistoryOperationKey(
+  menuId: number,
+  recommendationId?: string,
+  mealKey?: string,
+): string | null {
+  if (!Number.isSafeInteger(menuId) || menuId <= 0) return null;
+
+  const parsedRecommendationId = Number(recommendationId);
+  if (
+    typeof recommendationId === "string" &&
+    Number.isSafeInteger(parsedRecommendationId) &&
+    parsedRecommendationId > 0
+  ) {
+    return `meal:recommendation:${parsedRecommendationId}:${menuId}`;
+  }
+
+  if (typeof mealKey === "string" && /^[a-z0-9]{8,24}$/.test(mealKey)) {
+    return `meal:visit:${mealKey}:${menuId}`;
+  }
+
+  return null;
+}
+
+export async function recordFoodHistory(
+  menuId: number,
+  idempotencyKey: string,
+): Promise<FoodHistory> {
+  const result = await apiFetch<FoodHistoryCreateResponse>(
+    "/api/users/me/meals",
+    {
+      method: "POST",
+      body: { menu_id: menuId },
+      headers: { "Idempotency-Key": idempotencyKey },
+    },
+  );
+  if (
+    result?.success !== true ||
+    !result.data ||
+    !Number.isSafeInteger(result.data.id) ||
+    result.data.id <= 0 ||
+    result.data.menu_id !== menuId
+  ) {
+    throw new ApiError(
+      result?.message || "먹은 음식 기록을 저장하지 못했어요.",
+      0,
+    );
+  }
+  return result.data;
+}
+
 export async function getFoodHistory(
   limit = 50,
   offset = 0,

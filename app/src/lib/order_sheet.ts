@@ -9,7 +9,7 @@ import type {
     RecommendationFeedbackResponse,
 } from '@/types/order_sheet';
 
-import { apiFetch } from './api';
+import { apiFetch, resolveAssetUrl } from './api';
 
 export async function getOrderSheetQuestions():
     Promise<OrderSheetQuestionsData> {
@@ -54,7 +54,13 @@ export async function submitOrderSheet(
     if (!Array.isArray(result.data.recommended_menus) || result.data.recommended_menus.length === 0) {
         throw new Error("추천된 메뉴가 없습니다.");
     }
-    return result.data;
+    return {
+        ...result.data,
+        recommended_menus: result.data.recommended_menus.map((menu) => ({
+            ...menu,
+            image_url: resolveAssetUrl(menu.image_url),
+        })),
+    };
 }
 
 export async function submitRecommendationFeedback(

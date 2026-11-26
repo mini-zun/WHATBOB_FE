@@ -1,9 +1,9 @@
 import { Feather } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Colors, Fonts } from "@/constants/theme";
+import FoodIllustration from "@/components/FoodIllustration";
 import type { RecommendedMenu } from "@/types/order_sheet";
 
 type Props = {
@@ -35,13 +35,9 @@ export default function ConfirmedMenuScreen({ menu, onBack, onOpenMap }: Props) 
 
                 <View style={styles.content}>
                     <View style={styles.imageCircle}>
-                        <Image
-                            source={
-                                menu.image_url
-                                    ? { uri: menu.image_url }
-                                    : require("@/assets/images/whatbob_icon.png")
-                            }
-                            contentFit="contain"
+                        <FoodIllustration
+                            imageKey={menu.menu_id}
+                            imageUrl={menu.image_url}
                             style={styles.foodImage}
                             accessibilityLabel={menu.name}
                         />

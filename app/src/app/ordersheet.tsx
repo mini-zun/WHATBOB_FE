@@ -369,6 +369,7 @@ export default function OrderSheetScreen() {
             params: {
               menuId: String(currentMenu.menu_id),
               menuName: currentMenu.name,
+              recommendationId: String(recommendation.recommendation_id),
             },
           })
         }
