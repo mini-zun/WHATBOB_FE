@@ -4,6 +4,7 @@ import type { DOMProps } from "expo/dom";
 import { useEffect, useRef, useState } from "react";
 import { loadKakaoMaps } from "@/lib/kakao_maps";
 import type { NearbyPlace } from "@/types/places";
+import { Asset } from "expo-asset";
 
 type Props = {
     latitude: number;
@@ -82,33 +83,27 @@ export default function NearbyPlacesMap({
                 const bounds = new kakao.maps.LatLngBounds();
                 bounds.extend(center);
 
-                places.forEach((place, index) => {
+                const markerImageUrl = Asset.fromModule(require("@/assets/images/mapmaker.png"),).uri;
+
+                places.forEach((place) => {
                     const position = new kakao.maps.LatLng(
                         place.latitude,
                         place.longitude,
                     );
 
                     const marker = document.createElement("div");
-                    marker.textContent = String(index + 1);
                     marker.setAttribute(
                         "aria-label",
-                        `${index + 1}번 음식점 ${place.name}`,
+                        `음식점 ${place.name}`,
                     );
 
                     Object.assign(marker.style, {
-                        width: "30px",
-                        height: "30px",
-                        borderRadius: "50%",
-                        backgroundColor: "#79552E",
-                        color: "white",
-                        border: "2px solid white",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "14px",
-                        fontWeight: "700",
-                        boxShadow: "0 2px 5px rgba(0, 0, 0, 0.2)",
-                        boxSizing: "border-box",
+                        width: "32px",
+                        height: "43px",
+                        backgroundImage: `url("${markerImageUrl}")`,
+                        backgroundSize: "contain",
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "center",
                         cursor: "pointer",
                     });
 
@@ -133,15 +128,15 @@ export default function NearbyPlacesMap({
                             content: marker,
                             clickable: true,
                             xAnchor: 0.5,
-                            yAnchor: 0.5,
+                            yAnchor: 1,
                             zIndex: 1,
                         }),
                     );
                     bounds.extend(position);
                 });
 
-                if(places.length > 0) {
-                    map.setBounds(bounds, 40,40,40,40);
+                if (places.length > 0) {
+                    map.setBounds(bounds, 40, 40, 40, 40);
                 }
 
                 setMapInstance(map);
