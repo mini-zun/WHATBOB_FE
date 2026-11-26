@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentProps } from "react";
 import {
+  ActivityIndicator,
   BackHandler,
+  Linking,
   Pressable,
   StyleSheet,
   ScrollView,
   Text,
+  TextInput,
   View,
   Platform,
 } from "react-native";
@@ -27,6 +30,25 @@ import { LogoutConfirmPopUp } from "./LogoutConfirmPop";
 import { completeLogout, LogoutRestartRequiredError } from "@/lib/logout";
 import { isLogoutInProgress } from "@/lib/auth_operation";
 import { ApiError } from "@/lib/api";
+import { useToast } from "@/components/common/Toast";
+import { PopUpBox } from "./PopUpMessage";
+import { ProfileImageSheet } from "./ProfileImageSheet";
+import {
+  getNicknameErrorMessage,
+  getProfileImageErrorMessage,
+  resetMyProfileImage,
+  resolveProfileImageUrl,
+  syncSessionUser,
+  updateMyNickname,
+  uploadMyProfileImage,
+  validateNickname,
+  NICKNAME_MAX_LENGTH,
+} from "@/lib/profile_edit";
+import {
+  pickProfileImage,
+  prepareProfileImage,
+  type ProfileImageSource,
+} from "@/lib/profile_image_picker";
 
 type Props = {
   visible: boolean;
@@ -44,6 +66,151 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
   const [logoutCanCancel, setLogoutCanCancel] = useState(true);
 
   const logoutBusyRef = useRef(false);
+
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [nicknameDraft, setNicknameDraft] = useState("");
+  const [nicknameSaving, setNicknameSaving] = useState(false);
+
+  const nicknameSavingRef = useRef(false);
+
+  const showToast = useToast();
+
+  const startNicknameEdit = (currentNickname: string) => {
+    if (logoutOpen || isLogoutInProgress()) return;
+    setNicknameDraft(currentNickname);
+    setIsEditingNickname(true);
+  };
+
+  const cancelNicknameEdit = useCallback(() => {
+    if (nicknameSavingRef.current) return;
+    setIsEditingNickname(false);
+    setNicknameDraft("");
+  }, []);
+
+  const handleSaveNickname = async () => {
+    if (nicknameSavingRef.current) return;
+
+    const validationError = validateNickname(nicknameDraft);
+    if (validationError) {
+      showToast(validationError);
+      return;
+    }
+
+    nicknameSavingRef.current = true;
+    setNicknameSaving(true);
+    try {
+      const updated = await updateMyNickname(nicknameDraft);
+      syncSessionUser(updated, "nickname");
+      setIsEditingNickname(false);
+      showToast("닉네임을 변경했어요.");
+    } catch (error) {
+      showToast(getNicknameErrorMessage(error));
+    } finally {
+      nicknameSavingRef.current = false;
+      setNicknameSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!visible) cancelNicknameEdit();
+  }, [visible, cancelNicknameEdit]);
+
+  const [profileSheetOpen, setProfileSheetOpen] = useState(false);
+  const [cameraSettingsOpen, setCameraSettingsOpen] = useState(false);
+  const [profileImageBusy, setProfileImageBusy] = useState(false);
+  const [profileImageOverride, setProfileImageOverride] = useState<
+    string | null | undefined
+  >(undefined);
+
+  const profileImageBusyRef = useRef(false);
+
+  const handleOpenProfileSheet = () => {
+    if (
+      logoutOpen ||
+      isLogoutInProgress() ||
+      isEditingNickname ||
+      profileImageBusyRef.current
+    ) {
+      return;
+    }
+    setProfileSheetOpen(true);
+  };
+
+  const closeProfileSheet = useCallback(() => setProfileSheetOpen(false), []);
+
+  const handleSelectProfileImage = async (source: ProfileImageSource) => {
+    setProfileSheetOpen(false);
+    if (profileImageBusyRef.current) return;
+
+    let picked: Awaited<ReturnType<typeof pickProfileImage>>;
+    try {
+      picked = await pickProfileImage(source);
+    } catch {
+      showToast("사진을 불러오지 못했어요. 다시 시도해 주세요.");
+      return;
+    }
+
+    if (picked.status === "canceled") return;
+
+    if (picked.status === "permission-denied") {
+      if (picked.canAskAgain) {
+        showToast("카메라 권한을 허용해야 촬영할 수 있어요.");
+      } else {
+        setCameraSettingsOpen(true);
+      }
+      return;
+    }
+
+    profileImageBusyRef.current = true;
+    setProfileImageBusy(true);
+    try {
+      const prepared = await prepareProfileImage(
+        picked.uri,
+        picked.width,
+        picked.height,
+      );
+      setProfileImageOverride(prepared);
+      const updated = await uploadMyProfileImage(prepared);
+      syncSessionUser(updated, "profile_image");
+      showToast("프로필 사진을 변경했어요.");
+    } catch (error) {
+      setProfileImageOverride(undefined);
+      showToast(getProfileImageErrorMessage(error));
+    } finally {
+      profileImageBusyRef.current = false;
+      setProfileImageBusy(false);
+    }
+  };
+
+  const handleResetProfileImage = async () => {
+    setProfileSheetOpen(false);
+    if (profileImageBusyRef.current) return;
+
+    profileImageBusyRef.current = true;
+    setProfileImageBusy(true);
+    setProfileImageOverride(null);
+    try {
+      const updated = await resetMyProfileImage();
+      syncSessionUser(updated, "profile_image");
+      showToast("기본 이미지로 변경했어요.");
+    } catch (error) {
+      setProfileImageOverride(undefined);
+      showToast(getProfileImageErrorMessage(error));
+    } finally {
+      profileImageBusyRef.current = false;
+      setProfileImageBusy(false);
+    }
+  };
+
+  const handleOpenCameraSettings = () => {
+    setCameraSettingsOpen(false);
+    Linking.openSettings();
+  };
+
+  const closeCameraSettings = useCallback(
+    () => setCameraSettingsOpen(false),
+    [],
+  );
 
   const handleOpenLogout = () => {
     if (logoutBusyRef.current) return;
@@ -69,12 +236,33 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
   };
 
   const handleDrawerClose = () => {
+    if (cameraSettingsOpen) {
+      closeCameraSettings();
+      return;
+    }
+
+    if (profileSheetOpen) {
+      closeProfileSheet();
+      return;
+    }
+
     if (logoutOpen) {
       handleCancelLogout();
       return;
     }
 
-    if (logoutBusyRef.current || isLogoutInProgress()) return;
+    if (isEditingNickname) {
+      cancelNicknameEdit();
+      return;
+    }
+
+    if (
+      profileImageBusyRef.current ||
+      logoutBusyRef.current ||
+      isLogoutInProgress()
+    ) {
+      return;
+    }
     onClose();
   };
 
@@ -119,12 +307,20 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
     }
   };
 
+  const [prevVisible, setPrevVisible] = useState(visible);
+  if (visible !== prevVisible) {
+    setPrevVisible(visible);
+    if (visible) {
+      setPendingPath(null);
+      setProfileImageOverride(undefined);
+    }
+  }
+
   useEffect(() => {
-    if (!pendingPath || logoutOpen || isLogoutInProgress()) return;
+    if (!visible || !pendingPath || logoutOpen || isLogoutInProgress()) return;
     onClose();
     router.push(pendingPath);
-    setPendingPath(null);
-  }, [pendingPath, onClose, logoutOpen]);
+  }, [visible, pendingPath, onClose, logoutOpen]);
 
   const handleToNonPreferenceFood = () => {
     if (logoutOpen || isLogoutInProgress()) return;
@@ -141,13 +337,19 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
     setPendingPath("/food_history");
   };
 
-  const handleToProfileEdit = () => {
-    setPendingPath("/profile_edit");
-  };
-
   useEffect(() => {
     if (!visible) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (cameraSettingsOpen) {
+        closeCameraSettings();
+        return true;
+      }
+
+      if (profileSheetOpen) {
+        closeProfileSheet();
+        return true;
+      }
+
       if (logoutOpen) {
         if (
           !logoutBusyRef.current &&
@@ -161,11 +363,27 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         return true;
       }
 
-      if (!isLogoutInProgress()) onClose();
+      if (isEditingNickname) {
+        if (!nicknameSavingRef.current) cancelNicknameEdit();
+        return true;
+      }
+
+      if (!profileImageBusyRef.current && !isLogoutInProgress()) onClose();
       return true;
     });
     return () => sub.remove();
-  }, [visible, onClose, logoutOpen, logoutCanCancel]);
+  }, [
+    visible,
+    onClose,
+    logoutOpen,
+    logoutCanCancel,
+    isEditingNickname,
+    cancelNicknameEdit,
+    profileSheetOpen,
+    closeProfileSheet,
+    cameraSettingsOpen,
+    closeCameraSettings,
+  ]);
 
   if (!visible) return null;
 
@@ -174,7 +392,11 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
       ? readWebSession()?.user
       : null;
   const nickname = user?.nickname?.trim() || "사용자";
-  const profileimage = user?.profile_image?.trim();
+  const remoteProfileImage = resolveProfileImageUrl(user?.profile_image);
+  const displayedProfileImage =
+    profileImageOverride === undefined
+      ? remoteProfileImage
+      : profileImageOverride;
   const canLinkKakao = !!user && user.kakao_id === null;
   const isKakaoLinked = typeof user?.kakao_id === "number";
 
@@ -197,52 +419,106 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         style={[styles.panel]}
         pointerEvents={logoutOpen ? "none" : "auto"}
       >
-        <View style={[
-          styles.profileBack,
-          isKakaoLinked && { marginBottom: 0 },
-        ]}>
+        <View
+          style={[styles.profileBack, isKakaoLinked && { marginBottom: 0 }]}
+        >
           <Pressable
             style={styles.closeButton}
             onPress={handleDrawerClose}
             accessibilityRole="button"
             accessibilityLabel="사이드 메뉴 닫기"
           >
-            <Feather
-              name="arrow-right"
-              size={26}
-              color={Colors.textBrown}
+            <Feather name="arrow-right" size={26} color={Colors.textBrown} />
+          </Pressable>
+          <Pressable
+            style={styles.profileEditLayout}
+            onPress={handleOpenProfileSheet}
+            disabled={profileImageBusy}
+            accessibilityRole="button"
+            accessibilityLabel="프로필 사진 변경"
+            accessibilityState={{ disabled: profileImageBusy, busy: profileImageBusy }}
+          >
+            <View style={styles.profileIconSec}>
+              {displayedProfileImage ? (
+                <Image
+                  source={{ uri: displayedProfileImage }}
+                  contentFit="cover"
+                  style={styles.profileImageFill}
+                />
+              ) : (
+                <Image
+                  source={require("@/assets/images/profile_default.png")}
+                  contentFit="contain"
+                  style={styles.profileDefaultIcon}
+                />
+              )}
+              {profileImageBusy && (
+                <View style={styles.profileImageOverlay}>
+                  <ActivityIndicator color={Colors.white} />
+                </View>
+              )}
+            </View>
+            <Image
+              source={require("@/assets/images/profile_edit_btn.png")}
+              contentFit="contain"
+              style={styles.profileEditButton}
             />
           </Pressable>
-          <View style={styles.profileEditLayout}>
-            <Image
-              source={
-                profileimage
-                  ? { uri: profileimage }
-                  : require("@/assets/images/profile_default.png")
-              }
-              contentFit="cover"
-              style={styles.profileIconSec}
-            />
-            <Pressable>
-              <Image
-                source={require("@/assets/images/profile_edit_btn.png")}
-                contentFit="contain"
-                style={styles.profileEditButton}
-              />
-            </Pressable>
-          </View>
           <View style={styles.userNameSec}>
-            <Text style={styles.userName} numberOfLines={1}>
-              {nickname} 님
-            </Text>
+            {isEditingNickname ? (
+              <>
+                <TextInput
+                  value={nicknameDraft}
+                  onChangeText={setNicknameDraft}
+                  autoFocus
+                  maxLength={NICKNAME_MAX_LENGTH}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveNickname}
+                  submitBehavior="submit"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  editable={!nicknameSaving}
+                  underlineColorAndroid="transparent"
+                  placeholder="닉네임 입력"
+                  placeholderTextColor="rgba(106, 57, 7, 0.4)"
+                  style={styles.nicknameInput}
+                />
 
-            <Pressable>
-              <Image
-                source={require("@/assets/images/edit_pen.png")}
-                contentFit="contain"
-                style={styles.nameEditPen}
-              />
-            </Pressable>
+                <Pressable
+                  style={styles.editButtonBack}
+                  onPress={handleSaveNickname}
+                  accessibilityRole="button"
+                  accessibilityLabel="닉네임 수정"
+                >
+                  <Feather name="check" color={Colors.cardGreen} size={23} />
+                </Pressable>
+
+                <Pressable
+                  style={styles.editButtonBack}
+                  onPress={cancelNicknameEdit}
+                  accessibilityRole="button"
+                  accessibilityLabel="닉네임 수정"
+                >
+                  <Feather name="x" color={Colors.red} size={23} />
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={styles.userName} numberOfLines={1}>
+                  {nickname} 님
+                </Text>
+
+                <Pressable
+                  onPress={() => startNicknameEdit(user?.nickname ?? "")}
+                >
+                  <Image
+                    source={require("@/assets/images/edit_pen.png")}
+                    contentFit="contain"
+                    style={styles.nameEditPen}
+                  />
+                </Pressable>
+              </>
+            )}
           </View>
           <Text style={styles.profileDesc}>오늘도 맛있는 하루 되세요!</Text>
         </View>
@@ -338,6 +614,22 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
         onCancel={handleCancelLogout}
         onConfirm={handleConfirmLogout}
       />
+      <ProfileImageSheet
+        visible={profileSheetOpen}
+        canReset={remoteProfileImage !== null}
+        onSelectCamera={() => handleSelectProfileImage("camera")}
+        onSelectLibrary={() => handleSelectProfileImage("library")}
+        onReset={handleResetProfileImage}
+        onClose={closeProfileSheet}
+      />
+      <PopUpBox
+        visible={cameraSettingsOpen}
+        message={"카메라 권한이 꺼져 있어요.\n설정에서 허용해 주세요."}
+        leftButtonText="설정으로 이동"
+        rightButtonText="취소"
+        onLeftButtonClick={handleOpenCameraSettings}
+        onRightButtonClick={closeCameraSettings}
+      />
     </>
   );
 }
@@ -371,11 +663,7 @@ function MenuItem({
               accessible={false}
             />
           ) : menuIcon ? (
-            <Feather
-              name={menuIcon}
-              size={23}
-              color={Colors[menuIconColor]}
-            />
+            <Feather name={menuIcon} size={23} color={Colors[menuIconColor]} />
           ) : null}
           <Text style={styles.menuItem}>{menuTitle}</Text>
           {isVersion && (
@@ -421,6 +709,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   profileEditLayout: {
+    alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "flex-end",
     marginLeft: -7,
@@ -429,8 +718,25 @@ const styles = StyleSheet.create({
   profileIconSec: {
     width: 85,
     height: 85,
-    borderRadius: 100,
+    borderRadius: 42.5,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: Colors.background,
+  },
+  profileImageFill: {
+    width: "100%",
+    height: "100%",
+  },
+  profileDefaultIcon: {
+    width: 50,
+    height: 50,
+  },
+  profileImageOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.35)",
   },
   profileEditButton: {
     width: 31,
@@ -442,6 +748,8 @@ const styles = StyleSheet.create({
     gap: 4,
     alignItems: "center",
     marginBottom: 7,
+    minHeight: 32,
+    paddingRight: 20,
   },
   userName: {
     fontFamily: Fonts.bodySemiBold,
@@ -450,6 +758,27 @@ const styles = StyleSheet.create({
   nameEditPen: {
     width: 15,
     height: 15,
+  },
+  nicknameInput: {
+    flex: 1,
+    minWidth: 0,
+    height: 32,
+    padding: 0,
+    includeFontPadding: false,
+    textAlignVertical: "center",
+    fontFamily: Fonts.bodySemiBold,
+    fontSize: 22,
+    borderBottomWidth: 1.5,
+    borderBottomColor: Colors.textBrown,
+    outlineWidth: 0,
+  },
+  editButtonBack: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    backgroundColor: Colors.background,
+    justifyContent: "flex-end",
+    alignItems: "center",
   },
   profileDesc: {
     fontFamily: Fonts.bodyDesc,
@@ -559,7 +888,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.backOrange,
-    borderRadius: 12
+    borderRadius: 12,
   },
   kakaoAccountTitle: {
     fontFamily: Fonts.bodyMedium,

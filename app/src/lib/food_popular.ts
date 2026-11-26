@@ -1,4 +1,4 @@
-import { ApiError, apiFetch, getApiBaseUrl } from "./api";
+import { ApiError, apiFetch, resolveImageUrl } from "./api";
 
 export type PopularFood = {
   food_kind_id: number;
@@ -31,14 +31,11 @@ export async function getPopularFood(
       0,
     );
   }
-  const apiBaseUrl = getApiBaseUrl();
   return {
     ...result.data,
     items: result.data.items.map((item) => ({
       ...item,
-      image_url: /^https?:\/\//.test(item.image_url)
-        ? item.image_url
-        : `${apiBaseUrl}${item.image_url.startsWith("/") ? "" : "/"}${item.image_url}`,
+      image_url: resolveImageUrl(item.image_url),
     })),
   };
 }
