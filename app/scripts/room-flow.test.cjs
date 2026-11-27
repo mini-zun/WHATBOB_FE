@@ -114,6 +114,10 @@ test('voting and result rounds move current participants to their screens', () =
     assert.equal(flow.getRoomDestination(room('RESULT'), path), resultPath);
   }
   assert.equal(flow.getRoomDestination(room('RESULT'), resultPath), null);
+  for (const path of ['/nearby_places', '/home', `${lobby}-other/result`]) {
+    assert.equal(flow.getRoomDestination(room('RESULT'), path), null);
+    assert.equal(flow.getRoomDestination(room('VOTING'), path), null);
+  }
   for (const path of [votePath, resultPath]) {
     assert.equal(flow.getRoomDestination(room('CANCELLED'), path), lobby);
   }

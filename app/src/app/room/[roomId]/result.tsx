@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -12,6 +13,7 @@ import {
   getCandidateImageUrl,
   getCandidateName,
   getRoundResult,
+  getSelectedCandidate,
   getTieBreak,
 } from "@/lib/room-vote";
 import type { RoomCandidate } from "@/lib/rooms";
@@ -29,8 +31,17 @@ export default function RoomResultScreen() {
   const voterCount = Math.max(1, round.voted_member_count || round.active_member_count);
   const showVotes = !round.is_uncontested;
   const tieBreak = closedTieBreakRound === round.round_id ? null : getTieBreak(round);
+  const selected = getSelectedCandidate(round);
   const handleGoToMap = () => {
     setClosedTieBreakRound(round.round_id);
+    if (!selected) return;
+    router.push({
+      pathname: "/nearby_places",
+      params: {
+        menuId: String(selected.menu_id),
+        menuName: getCandidateName(selected),
+      },
+    });
   };
 
   return (
@@ -81,7 +92,13 @@ export default function RoomResultScreen() {
           </View>
         </ScrollView>
         <View style={styles.bottomLayout}>
-          <Pressable style={styles.mapButton} onPress={handleGoToMap} accessibilityRole="button">
+          <Pressable
+            style={[styles.mapButton, !selected && styles.mapButtonDisabled]}
+            onPress={handleGoToMap}
+            disabled={!selected}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !selected }}
+          >
             <Text style={styles.mapButtonText}>지도 보러 가기</Text>
           </Pressable>
           <Text style={styles.hintText}>투표는 마감 전까지 바꿀 수 있어요.</Text>
@@ -296,6 +313,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.textBrown,
     alignItems: "center",
     justifyContent: "center",
+  },
+  mapButtonDisabled: {
+    opacity: 0.5,
   },
   mapButtonText: {
     fontFamily: Fonts.bodyBold,
