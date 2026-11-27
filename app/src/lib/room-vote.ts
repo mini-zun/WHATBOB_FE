@@ -42,7 +42,12 @@ export function getRoundResult(round: RoomRound): RoomRoundResult {
   };
 }
 
-export function getTiedCandidates(round: RoomRound): RoomCandidate[] | null {
+export type RoomTieBreak = {
+  candidates: RoomCandidate[];
+  pickedId: number;
+};
+
+export function getTieBreak(round: RoomRound): RoomTieBreak | null {
   if (round.is_uncontested) return null;
   const maxVotes = Math.max(
     0,
@@ -52,5 +57,11 @@ export function getTiedCandidates(round: RoomRound): RoomCandidate[] | null {
   const tied = round.candidates.filter(
     (candidate) => (candidate.final_vote_count ?? 0) === maxVotes,
   );
-  return tied.length >= 2 ? tied : null;
+  if (tied.length < 2) return null;
+  const tiedIds = tied.map((candidate) => candidate.candidate_id);
+  const picked = getRoundResult(round).winners.filter((winner) =>
+    tiedIds.includes(winner.candidate_id),
+  );
+  if (picked.length !== 1) return null;
+  return { candidates: tied, pickedId: picked[0].candidate_id };
 }

@@ -8,12 +8,11 @@ import { RoomStatus } from "@/components/order-sheet/RoomStatus";
 import { TieBreakPopup } from "@/components/room/TieBreakPopup";
 import { Colors, Fonts } from "@/constants/theme";
 import { useRoomSession } from "@/contexts/RoomSessionContext";
-import { useTieBreakPick } from "@/hooks/useTieBreakPick";
 import {
   getCandidateImageUrl,
   getCandidateName,
   getRoundResult,
-  getTiedCandidates,
+  getTieBreak,
 } from "@/lib/room-vote";
 import type { RoomCandidate } from "@/lib/rooms";
 
@@ -21,7 +20,6 @@ export default function RoomResultScreen() {
   const { room, requestExit } = useRoomSession();
   const round = room?.current_round;
   const [closedTieBreakRound, setClosedTieBreakRound] = useState<number | null>(null);
-  const tieBreakPick = useTieBreakPick();
 
   if (!round || round.status !== "RESULT") {
     return <RoomStatus message="결과를 불러오는 중이에요." onExit={requestExit} />;
@@ -30,10 +28,7 @@ export default function RoomResultScreen() {
   const winnerIds = getRoundResult(round).winners.map((winner) => winner.candidate_id);
   const voterCount = Math.max(1, round.voted_member_count || round.active_member_count);
   const showVotes = !round.is_uncontested;
-  const tiedCandidates =
-    tieBreakPick.supported && closedTieBreakRound !== round.round_id
-      ? getTiedCandidates(round)
-      : null;
+  const tieBreak = closedTieBreakRound === round.round_id ? null : getTieBreak(round);
   const handleGoToMap = () => {
     setClosedTieBreakRound(round.round_id);
   };
@@ -92,10 +87,10 @@ export default function RoomResultScreen() {
           <Text style={styles.hintText}>투표는 마감 전까지 바꿀 수 있어요.</Text>
         </View>
       </SafeAreaView>
-      {tiedCandidates && (
+      {tieBreak && (
         <TieBreakPopup
-          candidates={tiedCandidates}
-          pickedId={tieBreakPick.pickedId}
+          candidates={tieBreak.candidates}
+          pickedId={tieBreak.pickedId}
           onGoToMap={handleGoToMap}
         />
       )}

@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Colors, Fonts } from "@/constants/theme";
@@ -20,55 +20,40 @@ function getStepDelay(step: number, totalSteps: number) {
 
 type Props = {
   candidates: RoomCandidate[];
-  pickedId: number | null;
+  pickedId: number;
   onGoToMap: () => void;
 };
 
 export function TieBreakPopup({ candidates, pickedId, onGoToMap }: Props) {
   const count = candidates.length;
-  const foundIndex = candidates.findIndex(
-    (candidate) => candidate.candidate_id === pickedId,
+  const pickedIndex = Math.max(
+    0,
+    candidates.findIndex((candidate) => candidate.candidate_id === pickedId),
   );
-  const pickedIndex = foundIndex >= 0 ? foundIndex : null;
   const [activeIndex, setActiveIndex] = useState(0);
   const [done, setDone] = useState(false);
-  const stepRef = useRef(0);
 
   useEffect(() => {
     if (count === 0) return;
+    const totalSteps = count * LOOPS + pickedIndex;
+    let step = 0;
     let timer: ReturnType<typeof setTimeout>;
-    const firstDelay = stepRef.current === 0 ? START_DELAY : FASTEST_STEP;
-
-    if (pickedIndex === null) {
-      const spin = () => {
-        stepRef.current += 1;
-        setActiveIndex(stepRef.current % count);
-        timer = setTimeout(spin, FASTEST_STEP);
-      };
-      timer = setTimeout(spin, firstDelay);
-      return () => clearTimeout(timer);
-    }
-
-    const start = stepRef.current;
-    const offset = (((pickedIndex - (start % count)) % count) + count) % count;
-    const totalSteps = count * LOOPS + offset;
-    const end = start + totalSteps;
 
     const tick = () => {
-      stepRef.current += 1;
-      setActiveIndex(stepRef.current % count);
-      if (stepRef.current >= end) {
+      step += 1;
+      setActiveIndex(step % count);
+      if (step >= totalSteps) {
         timer = setTimeout(() => setDone(true), RESULT_DELAY);
         return;
       }
-      timer = setTimeout(tick, getStepDelay(stepRef.current - start, totalSteps));
+      timer = setTimeout(tick, getStepDelay(step, totalSteps));
     };
 
-    timer = setTimeout(tick, firstDelay);
+    timer = setTimeout(tick, START_DELAY);
     return () => clearTimeout(timer);
   }, [count, pickedIndex]);
 
-  const picked = pickedIndex === null ? null : candidates[pickedIndex];
+  const picked = candidates[pickedIndex];
 
   return (
     <View style={styles.backdrop}>
@@ -85,7 +70,7 @@ export function TieBreakPopup({ candidates, pickedId, onGoToMap }: Props) {
               key={candidate.candidate_id}
               candidate={candidate}
               active={index === activeIndex}
-              picked={done && pickedIndex !== null && index === pickedIndex}
+              picked={done && index === pickedIndex}
             />
           ))}
         </View>
