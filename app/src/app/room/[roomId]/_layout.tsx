@@ -5,8 +5,9 @@ import {
 } from "expo-router";
 
 import { RoomStatus } from "@/components/order-sheet/RoomStatus";
+import { HostDecisionPop } from "@/components/room/HostDecisionPop";
 import { RoomSessionProvider, useRoomSession } from "@/contexts/RoomSessionContext";
-import { getRoomDestination } from "@/lib/room-flow";
+import { getRoomDestination, getRoomScreenPathname } from "@/lib/room-flow";
 import { parseRoomId } from "@/lib/rooms";
 
 const CLOSED_MESSAGES = {
@@ -32,11 +33,10 @@ function RoomNavigator() {
     const transition = `${pathname}:${destination}:${room.current_round?.round_id ?? "none"}`;
     if (pendingNavigation.current === transition) return;
     pendingNavigation.current = transition;
-    if (destination.endsWith("/ordersheet")) {
-      router.replace({ pathname: "/room/[roomId]/ordersheet", params: { roomId: room.room_id } });
-    } else {
-      router.replace({ pathname: "/room/[roomId]", params: { roomId: room.room_id } });
-    }
+    router.replace({
+      pathname: getRoomScreenPathname(destination),
+      params: { roomId: room.room_id },
+    });
   }, [root?.key, room, pathname, loading, error, closedReason, exitOpen, leaving, left]);
 
   const message = closedReason ? CLOSED_MESSAGES[closedReason] : error?.message;
@@ -48,6 +48,9 @@ function RoomNavigator() {
           <RoomStatus message={message} onExit={requestExit}
             onRetry={closedReason || error?.status === 403 ? undefined : refresh} />
         </View>
+      )}
+      {!message && !exitOpen && !leaving && !left && (
+        <HostDecisionPop room={room} refresh={refresh} />
       )}
     </View>
   );

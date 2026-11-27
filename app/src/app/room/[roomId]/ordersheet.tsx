@@ -31,5 +31,5 @@ export default function RoomOrderSheetScreen() {
     return <RoomStatus message={message} onExit={requestExit} />;
   }
   return <RoomOrderSheet key={round.round_id} roomId={roomId} roundId={round.round_id}
-    roundStatus={round.status} onRefreshRoom={refresh} onExit={requestExit} />;
+    roundNo={round.round_no} roundStatus={round.status} onRefreshRoom={refresh} onExit={requestExit} />;
 }
