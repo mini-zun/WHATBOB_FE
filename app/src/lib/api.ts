@@ -49,9 +49,16 @@ export function getApiBaseUrl(): string {
   return apiBaseUrl.replace(/\/$/, "");
 }
 
+export function resolveAssetUrl(path?: string | null): string | null {
+  const value = path?.trim();
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith("//")) return new URL(value, getApiBaseUrl()).href;
+  return `${getApiBaseUrl()}/${value.replace(/^\/+/, "")}`;
+}
+
 export function resolveImageUrl(imageUrl: string): string {
-  if (/^https?:\/\//.test(imageUrl)) return imageUrl;
-  return `${getApiBaseUrl()}${imageUrl.startsWith("/") ? "" : "/"}${imageUrl}`;
+  return resolveAssetUrl(imageUrl) ?? "";
 }
 
 function getApiHeaders(apiBaseUrl: string): Record<string, string> {

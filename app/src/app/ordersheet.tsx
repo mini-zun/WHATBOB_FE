@@ -363,6 +363,16 @@ export default function OrderSheetScreen() {
       <ConfirmedMenuScreen
         menu={currentMenu}
         onBack={() => setIsAccepted(false)}
+        onOpenMap={() => 
+          router.push({
+            pathname: "/nearby_places",
+            params: {
+              menuId: String(currentMenu.menu_id),
+              menuName: currentMenu.name,
+              recommendationId: String(recommendation.recommendation_id),
+            },
+          })
+        }
       />
     );
   }

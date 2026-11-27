@@ -1,4 +1,4 @@
-import { Image, type ImageSource } from "expo-image";
+import { type ImageSource } from "expo-image";
 import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -16,6 +16,7 @@ import Animated, {
 import { scheduleOnRN } from "react-native-worklets";
 
 import { Colors, Fonts } from "@/constants/theme";
+import FoodIllustration from "@/components/FoodIllustration";
 import type { RecommendedMenu } from "@/types/order_sheet";
 
 const CARD_W = 130;
@@ -60,7 +61,6 @@ const SLOTS_FOUR: Slots = {
 const STEP_PX = SLOTS_DEFAULT.x[1];
 const PERSPECTIVE = 700;
 const TIMING = { duration: 380, easing: Easing.out(Easing.cubic) };
-const DEFAULT_IMAGE = require("@/assets/images/whatbob_icon.png");
 
 const mod = (v: number, n: number) => {
   "worklet";
@@ -96,7 +96,7 @@ type CardProps = {
   slots: Slots;
   relative: number;
   progress: SharedValue<number>;
-  imageSource: ImageSource | number;
+  imageSource?: ImageSource | number;
   onNavigate: (delta: number) => void;
 };
 
@@ -166,10 +166,12 @@ function FoodCard({
         style={styles.cardBody}
       >
         <View style={styles.circle}>
-          <Image
+          <FoodIllustration
+            imageKey={menu.menu_id}
+            imageUrl={menu.image_url}
             source={imageSource}
-            contentFit="contain"
             style={styles.foodImage}
+            accessibilityLabel={menu.name}
           />
         </View>
         <Text style={styles.name} numberOfLines={2} maxFontSizeMultiplier={1.2}>
@@ -270,7 +272,7 @@ export function FoodResultCarousel({
               slots={slots}
               relative={loop ? wrap(i - active, n) : i - active}
               progress={progress}
-              imageSource={getImageSource?.(menu) ?? DEFAULT_IMAGE}
+              imageSource={getImageSource?.(menu)}
               onNavigate={moveBy}
             />
           ))}
