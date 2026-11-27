@@ -12,9 +12,20 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "QR 코드로 방에 참여하기 위해 카메라를 사용합니다."
+          "cameraPermission": "QR 코드로 방에 참여하고 프로필 사진을 촬영하기 위해 카메라를 사용합니다.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
-      ]
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "프로필 사진을 선택하기 위해 사진 보관함에 접근합니다.",
+          "cameraPermission": "QR 코드로 방에 참여하고 프로필 사진을 촬영하기 위해 카메라를 사용합니다.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-asset"
     ]
   }
 }

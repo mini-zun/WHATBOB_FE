@@ -243,7 +243,7 @@ export default function FoodPreferencesScreen() {
                             ) : null}
                         </ScrollView>
 
-                        <View style={styles.searchFooter}> 
+                        <View style={styles.searchFooter}>
                             {saveError && (
                                 <Text
                                     accessibilityRole="alert"
@@ -349,6 +349,12 @@ export default function FoodPreferencesScreen() {
                                                 ]}
                                             >
                                                 <Text style={styles.tagText}>{keyword}</Text>
+                                                <Image
+                                                    source={require("@/assets/images/x.png")}
+                                                    contentFit="contain"
+                                                    style={styles.tagCloseIcon}
+                                                    accessible={false}
+                                                />
                                             </Pressable>
                                         ))}
                                     </View>
@@ -551,19 +557,24 @@ const styles = StyleSheet.create({
         paddingBottom: 8,
     },
     tag: {
-        minWidth: 52,
-        minHeight: 56,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
+        flexDirection: "row",
+        height: 40,
+        paddingLeft: 10,
+        paddingRight: 7,
+        paddingVertical: 5,
+        gap: 5,
+        alignItems: "center",
+        justifyContent: "center",
         borderRadius: 30,
-        backgroundColor: '#F1D5CD',
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.18,
-        shadowRadius: 2,
-        elevation: 3,
+        backgroundColor: "#F9D5CD",
+        borderWidth: 1,
+        borderColor: "#EABEBE",
+    },
+
+    tagCloseIcon: {
+        width: 8.07,
+        height: 8.07,
+        flexShrink: 0,
     },
     tagText: {
         fontFamily: Fonts.bodyBold,

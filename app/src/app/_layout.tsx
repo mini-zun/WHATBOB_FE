@@ -5,15 +5,15 @@ import { useEffect, useState } from "react";
 import { Button, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { initializeAuthentication, clearWebSession } from "@/lib/web-auth";
-import { readLogoutRequest } from '@/lib/logout_request';
+import { clearLogoutRequest, readLogoutRequest } from '@/lib/logout_request';
 import { completeLogout, LogoutRestartRequiredError } from '@/lib/logout';
 import {
   hasAuthContextChanged,
   subscribeAuthContextChange,
   subscribeAuthContextInvalidation,
 } from "@/lib/auth_context";
-import { clearLogoutRequest } from "@/lib/logout_request";
 import StartupLoadingScreen from "@/components/StartupLoadingScreen";
+import { ToastProvider } from "@/components/common/Toast";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -25,6 +25,7 @@ export default function RootLayout() {
     PretendardBold: require("../../assets/fonts/Pretendard-Bold.otf"),
     PretendardBlack: require("../../assets/fonts/Pretendard-Black.otf"),
     PretendardSemiBold: require("../../assets/fonts/Pretendard-SemiBold.otf"),
+    PretendardRegular: require("../../assets/fonts/Pretendard-Regular.otf"),
     PretendardMedium: require("../../assets/fonts/Pretendard-Medium.otf"),
     BusanDandiMyeongjoM: require("../../assets/fonts/BusanDandiMyeongjoM.otf"),
   });
@@ -72,9 +73,6 @@ export default function RootLayout() {
 
   useEffect(() => {
     let active = true;
-
-    setAuthReady(false);
-    setAuthError(null);
 
     const startAuthentication = async () => {
       const pendingLogout = readLogoutRequest();
@@ -124,6 +122,7 @@ export default function RootLayout() {
   }
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <ToastProvider>
       {authReady ? (
         <Stack screenOptions={{ headerShown: false }} />
       ) : authError ? (
@@ -157,6 +156,7 @@ export default function RootLayout() {
       ) : (
         <StartupLoadingScreen/>
       )}
+      </ToastProvider>
     </GestureHandlerRootView>
   );
 }

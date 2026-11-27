@@ -27,6 +27,7 @@ type ApiOptions = {
   headers?: Record<string, string>;
   credentials?: "omit" | "same-origin" | "include";
   allowDuringLogout?: boolean;
+  timeout?: number;
 };
 
 function assertRequestAllowed(options: ApiOptions): void {
@@ -48,9 +49,16 @@ export function getApiBaseUrl(): string {
   return apiBaseUrl.replace(/\/$/, "");
 }
 
-export function resolveAssetUrl(url: string): string {
-  if (!url || /^https?:\/\//.test(url)) return url;
-  return `${getApiBaseUrl()}${url.startsWith("/") ? "" : "/"}${url}`;
+export function resolveAssetUrl(path?: string | null): string | null {
+  const value = path?.trim();
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith("//")) return new URL(value, getApiBaseUrl()).href;
+  return `${getApiBaseUrl()}/${value.replace(/^\/+/, "")}`;
+}
+
+export function resolveImageUrl(imageUrl: string): string {
+  return resolveAssetUrl(imageUrl) ?? "";
 }
 
 function getApiHeaders(apiBaseUrl: string): Record<string, string> {
@@ -126,15 +134,16 @@ async function requestOnce<T>(
   options: ApiOptions = {},
 ): Promise<T> {
   assertRequestAllowed(options);
-  const { method = "GET", body, auth = true, signal, headers: extraHeaders, credentials, } = options;
+  const { method = "GET", body, auth = true, signal, headers: extraHeaders, credentials, timeout: requestTimeout = REQUEST_TIMEOUT, } = options;
   const apiBaseUrl = getApiBaseUrl();
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
 
   const headers: Record<string, string> = {
     ...getApiHeaders(apiBaseUrl),
     ...extraHeaders,
   };
-  
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+
+  if (body !== undefined && !isFormData) headers["Content-Type"] = "application/json";
   if (auth) {
     const token = getAccessToken();
     if (!token) {
@@ -152,7 +161,7 @@ async function requestOnce<T>(
   const timeout = setTimeout(() => {
     timedOut = true;
     controller.abort();
-  }, REQUEST_TIMEOUT);
+  }, requestTimeout);
   const cancel = () => controller.abort();
   if (signal?.aborted) controller.abort();
   signal?.addEventListener("abort", cancel);
@@ -161,7 +170,12 @@ async function requestOnce<T>(
     const response = await fetch(`${apiBaseUrl}${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body:
+        body === undefined
+          ? undefined
+          : isFormData
+            ? body
+            : JSON.stringify(body),
       signal: controller.signal,
       credentials,
     });

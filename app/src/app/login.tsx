@@ -61,7 +61,7 @@ export default function LoginScreen() {
                         accessibilityState={{ disabled: isLoggingIn, busy: isLoggingIn }}
                         style={styles.kakaoButton}>
                         <Image
-                            source={require('@/assets/images/kakao_login_button.png')}
+                            source={require('@/assets/images/kakao_login_kr_large.png')}
                             contentFit='contain'
                             style={styles.kakaoButtonImage}
                         />
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     },
     kakaoButtonImage: {
         width: '100%',
-        aspectRatio: 336 / 69,
+        aspectRatio: 1344 / 184,
     },
     feedback: {
         marginTop: 12,

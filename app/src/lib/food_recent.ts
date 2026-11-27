@@ -1,4 +1,4 @@
-import { ApiError, apiFetch, resolveAssetUrl } from "./api";
+import { ApiError, apiFetch, resolveImageUrl } from "./api";
 
 export type RecentFood = {
   food_kind_id: number;
@@ -38,7 +38,7 @@ export async function getRecentFood(
     ...result.data,
     items: result.data.items.map((item) => ({
       ...item,
-      image_url: resolveAssetUrl(item.image_url),
+      image_url: resolveImageUrl(item.image_url),
     })),
   };
 }

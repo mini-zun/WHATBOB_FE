@@ -7,6 +7,10 @@
       "destination": "/api/proxy?path=:path*"
     },
     {
+      "source": "/static/:path*",
+      "destination": "https://whatbob.kro.kr/static/:path*"
+    },
+    {
       "source": "/room/:roomId",
       "destination": "/room/[roomId]"
     }

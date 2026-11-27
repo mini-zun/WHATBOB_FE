@@ -70,6 +70,7 @@ export type RecommendedMenu = {
   sodium_mg: number | null;
   match_score: number;
   matched_question_codes: string[];
+  image_url?: string | null;  
 };
 
 export type OrderSheetRecommendData = {
