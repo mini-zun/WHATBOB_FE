@@ -12,7 +12,7 @@ import { MenuCarousel } from "@/components/home/MenuCarousel";
 import { useCallback, useEffect, useState } from "react";
 import { SideMenuDrawer } from "@/components/home/SideMenuDrawer";
 import { getPopularFood, type PopularFood } from "@/lib/food_popular";
-import { getFoodHistory, type FoodHistory } from "@/lib/food_history";
+import { getRecentFood, type RecentFood } from "@/lib/food_recent";
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -22,7 +22,7 @@ export default function HomeScreen() {
   const [popularLoading, setPopularLoading] = useState(true);
   const [popularError, setPopularError] = useState<string | null>(null);
 
-  const [meals, setMeals] = useState<FoodHistory[]>([]);
+  const [meals, setMeals] = useState<RecentFood[]>([]);
   const [mealsLoading, setMealsLoading] = useState(true);
   const [mealsError, setMealsError] = useState<string | null>(null);
 
@@ -50,8 +50,10 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       const controller = new AbortController();
+      setMealsLoading(true);
+      setMealsError(null);
 
-      getFoodHistory(5, 0, controller.signal)
+      getRecentFood(controller.signal)
         .then((data) => {
           setMeals(data.items);
           setMealsError(null);
@@ -174,7 +176,7 @@ export default function HomeScreen() {
                 >
                   {meals.map((item) => (
                     <MenuBox
-                      key={item.id}
+                      key={item.food_kind_id}
                       menu={item.menu_name}
                       image={item.image_url}
                     />
