@@ -8,18 +8,21 @@ import GooglePlacesList from "@/components/places/GooglePlacesList";
 import NearbyPlacesTitle from "@/components/places/NearbyPlacesTitle";
 import { Colors, Fonts } from "@/constants/theme";
 import { getCurrentLocation, type CurrentLocation } from "@/lib/location";
-import { getNearbyPlaces } from "@/lib/places";
+import { getNearbyPlaces, getRoomNearbyPlaces } from "@/lib/places";
+import { parseRoomId } from "@/lib/rooms";
 import { openKakaoDirections } from "@/lib/kakao_directions";
-import { createMealKey, getFoodHistoryOperationKey, recordFoodHistory } from "@/lib/food_history";
+import { createMealKey, getFoodHistoryOperationKey, getRoomFoodHistoryOperationKey, recordFoodHistory } from "@/lib/food_history";
 import type { NearbyPlacesData, SearchRadius } from "@/types/places";
 import type { PlacesViewportHandle } from "@/lib/places_widget";
 
 export default function NearbyPlacesScreen() {
-    const { menuId, menuName, recommendationId, mealKey } = useLocalSearchParams<{
+    const { menuId, menuName, recommendationId, mealKey, roomId, roundId } = useLocalSearchParams<{
         menuId?: string;
         menuName?: string;
         recommendationId?: string;
         mealKey?: string;
+        roomId?: string;
+        roundId?: string;
     }>();
 
     const [data, setData] = useState<NearbyPlacesData | null>(null);
@@ -47,9 +50,18 @@ export default function NearbyPlacesScreen() {
         Number.isSafeInteger(parsedMenuId) &&
         parsedMenuId > 0;
 
-    const operationKey = isValidMenu
-        ? getFoodHistoryOperationKey(parsedMenuId, recommendationId, mealKey)
+    const parsedRoundId = Number(roundId);
+    const room = typeof roomId === "string" &&
+        Number.isSafeInteger(parsedRoundId) && parsedRoundId > 0
+        ? parseRoomId(roomId)
         : null;
+    const originLabel = room ? "방장 위치" : "현재 위치";
+
+    const operationKey = !isValidMenu
+        ? null
+        : room
+            ? getRoomFoodHistoryOperationKey(room, parsedRoundId, parsedMenuId)
+            : getFoodHistoryOperationKey(parsedMenuId, recommendationId, mealKey);
     const mealStatus = mealSave?.key === operationKey ? mealSave : null;
     const selectedPlace = data?.places.find((place) => place.kakao_place_id === selectedPlaceId);
 
@@ -79,11 +91,11 @@ export default function NearbyPlacesScreen() {
     };
 
     useEffect(() => {
-        if (!isValidMenu || operationKey) return;
+        if (!isValidMenu || room || operationKey) return;
         router.setParams({
             mealKey: createMealKey(),
         });
-    }, [isValidMenu, operationKey]);
+    }, [isValidMenu, room, operationKey]);
 
     const handleChoosePlace = useCallback(async (placeId: string) => {
         if (!operationKey || saveInFlight.current) return;
@@ -128,6 +140,20 @@ export default function NearbyPlacesScreen() {
             setCurrentLocation(null);
 
             try {
+                if (room) {
+                    const result = await getRoomNearbyPlaces(
+                        room,
+                        parsedRoundId,
+                        radius,
+                        controller.signal,
+                    );
+                    if (!controller.signal.aborted) {
+                        setCurrentLocation(result.search_origin);
+                        setData(result);
+                    }
+                    return;
+                }
+
                 const location = await getCurrentLocation();
 
                 if (controller.signal.aborted) return;
@@ -167,7 +193,7 @@ export default function NearbyPlacesScreen() {
         return () => {
             controller.abort();
         };
-    }, [isValidMenu, parsedMenuId, retryCount, radius]);
+    }, [isValidMenu, parsedMenuId, retryCount, radius, room, parsedRoundId]);
 
     const name = typeof menuName === "string" &&
         menuName.trim() ? menuName.trim() : "선택한 음식";
@@ -260,9 +286,7 @@ export default function NearbyPlacesScreen() {
                             <Text style={styles.resultSummary}>
                                 {isLoading
                                     ? "검색 중…"
-                                    : data
-                                        ? `가까운 순 · ${data.places.length}곳`
-                                        : "가까운 순"}
+                                    : `${room ? "방장 위치에서 " : ""}가까운 순${data ? ` · ${data.places.length}곳` : ""}`}
                             </Text>
                             {currentLocation && (
                                 <View style={styles.mapFrame}>
@@ -271,6 +295,7 @@ export default function NearbyPlacesScreen() {
                                         longitude={currentLocation.longitude}
                                         height={230}
                                         places={data?.places ?? []}
+                                        originLabel={originLabel}
                                         selectedPlaceId={selectedPlaceId}
                                         onSelectPlace={async (placeId) => {
                                             selectPlace(placeId);
@@ -314,7 +339,9 @@ export default function NearbyPlacesScreen() {
                             )}
                             {isLoading ? (
                                 <Text accessibilityState={{ busy: true }}>
-                                    현재 위치와 주변 음식점을 확인하고 있어요.
+                                    {room
+                                        ? "방장 위치 주변 음식점을 확인하고 있어요."
+                                        : "현재 위치와 주변 음식점을 확인하고 있어요."}
                                 </Text>
                             ) : error ? (
                                 <View>

@@ -28,6 +28,7 @@ export function getRoomDestination(room: RoomDetail, pathname: string): string |
   const vote = `${lobby}/vote`;
   const result = `${lobby}/result`;
   const path = pathname.replace(/\/$/, "");
+  if (path !== lobby && !path.startsWith(`${lobby}/`)) return null;
   const round = room.current_round;
   if (isVotingRound(room)) return path === vote ? null : vote;
   if (isResultRound(room)) return path === result ? null : result;

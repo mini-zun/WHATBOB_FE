@@ -114,6 +114,10 @@ test('voting and result rounds move current participants to their screens', () =
     assert.equal(flow.getRoomDestination(room('RESULT'), path), resultPath);
   }
   assert.equal(flow.getRoomDestination(room('RESULT'), resultPath), null);
+  for (const path of ['/nearby_places', '/home', `${lobby}-other/result`]) {
+    assert.equal(flow.getRoomDestination(room('RESULT'), path), null);
+    assert.equal(flow.getRoomDestination(room('VOTING'), path), null);
+  }
   for (const path of [votePath, resultPath]) {
     assert.equal(flow.getRoomDestination(room('CANCELLED'), path), lobby);
   }
@@ -125,6 +129,22 @@ test('voting and result rounds move current participants to their screens', () =
   assert.equal(flow.getRoomScreenPathname(resultPath), '/room/[roomId]/result');
   assert.equal(flow.getRoomScreenPathname(questionPath), '/room/[roomId]/ordersheet');
   assert.equal(flow.getRoomScreenPathname(lobby), '/room/[roomId]');
+});
+
+test('room meal history key is stable within a round and differs across rounds', () => {
+  const history = load('src/lib/food_history.ts', { './api': {} });
+  const key = history.getRoomFoodHistoryOperationKey(roomId, 10, 7);
+  assert.equal(key, 'meal:room:12345678123441238123123456789abc:10:7');
+  assert.match(key, /^[A-Za-z0-9_.:-]{1,64}$/);
+  assert.equal(history.getRoomFoodHistoryOperationKey(roomId.toUpperCase(), 10, 7), key);
+  assert.notEqual(history.getRoomFoodHistoryOperationKey(roomId, 11, 7), key);
+  assert.notEqual(history.getRoomFoodHistoryOperationKey(roomId, 10, 8), key);
+  assert.notEqual(
+    history.getRoomFoodHistoryOperationKey('87654321-1234-4123-8123-123456789abc', 10, 7), key);
+  for (const [room, round, menu] of [
+    ['not-a-room', 10, 7], [roomId, 0, 7], [roomId, 1.5, 7], [roomId, 10, 0],
+    [roomId, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
+  ]) assert.equal(history.getRoomFoodHistoryOperationKey(room, round, menu), null);
 });
 
 test('older room snapshots cannot roll back the current round', () => {

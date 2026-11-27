@@ -42,6 +42,11 @@ export function getRoundResult(round: RoomRound): RoomRoundResult {
   };
 }
 
+export function getSelectedCandidate(round: RoomRound): RoomCandidate | null {
+  const result = getRoundResult(round);
+  return result.winners[0] ?? result.ranking[0] ?? null;
+}
+
 export type RoomTieBreak = {
   candidates: RoomCandidate[];
   pickedId: number;

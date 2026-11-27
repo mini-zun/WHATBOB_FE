@@ -110,6 +110,7 @@ export type RoomRound = {
   pending_departed_members: RoomDepartedMember[];
   candidates: RoomCandidate[];
   winners: RoomCandidate[];
+  nearby_location_ready?: boolean;
 };
 
 export type RoomViewerState = {
@@ -202,7 +203,19 @@ export const ROOM_ERROR_CODE = {
   notInVoting: "ROUND_NOT_IN_VOTING",
   roundNotPaused: "ROUND_NOT_PAUSED",
   staleDecisionVersion: "STALE_DECISION_VERSION",
+  nearbyLocationAlreadySet: "ROUND_NEARBY_LOCATION_ALREADY_SET",
+  nearbyLocationPending: "ROUND_NEARBY_LOCATION_PENDING",
 } as const;
+
+export type RoomSearchOrigin = {
+  latitude: number;
+  longitude: number;
+};
+
+export type RoomSearchOriginResponse = {
+  round_id: number;
+  common_state: unknown;
+};
 
 export type RoomQuestionsResponse = OrderSheetQuestionsData & {
   room_id: string;
@@ -375,6 +388,20 @@ export function decideRoomRound(
         decision_version: round.decision_version,
         round_id: round.round_id,
       },
+    },
+  );
+}
+
+export function setRoomSearchOrigin(
+  roomId: string,
+  roundId: number,
+  origin: RoomSearchOrigin,
+): Promise<RoomSearchOriginResponse> {
+  return apiFetch<RoomSearchOriginResponse>(
+    `${roomPath(roomId)}/rounds/${roundId}/nearby/location`,
+    {
+      method: "PUT",
+      body: { latitude: origin.latitude, longitude: origin.longitude },
     },
   );
 }
