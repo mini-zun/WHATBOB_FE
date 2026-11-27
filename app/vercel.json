@@ -11,6 +11,18 @@
       "destination": "https://whatbob.kro.kr/static/:path*"
     },
     {
+      "source": "/room/:roomId/ordersheet",
+      "destination": "/room/[roomId]/ordersheet"
+    },
+    {
+      "source": "/room/:roomId/vote",
+      "destination": "/room/[roomId]/vote"
+    },
+    {
+      "source": "/room/:roomId/result",
+      "destination": "/room/[roomId]/result"
+    },
+    {
       "source": "/room/:roomId",
       "destination": "/room/[roomId]"
     }
