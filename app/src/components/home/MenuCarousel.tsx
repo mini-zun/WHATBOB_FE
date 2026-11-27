@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -33,6 +33,7 @@ export type MenuCard = {
   bg: string;
   image: number;
   sideImage: number;
+  disabled?: boolean;
 };
 
 const CARDS: MenuCard[] = [
@@ -57,14 +58,15 @@ const CARDS: MenuCard[] = [
     sideImage: require("@/assets/images/with_form_icon_side.png"),
   },
   {
-    key: "bowl",
-    title: "그릇에 골라담기",
-    desc: "원하는 재료와 취향을 담아\n메뉴를 추천해요.",
-    sideTitle: "그릇에\n골라담기",
-    sideDesc: "원하는 재료와\n취향을 담아\n메뉴를 추천해요.",
+    key: "preparing",
+    title: "메뉴 준비 중이에요!",
+    desc: "",
+    sideTitle: "메뉴 준비\n중이에요.",
+    sideDesc: "",
     bg: Colors.cardGreen,
-    image: require("@/assets/images/with_bowl_icon.png"),
-    sideImage: require("@/assets/images/with_bowl_icon_side.png"),
+    image: require("@/assets/images/preparing_icon.png"),
+    sideImage: require("@/assets/images/preparing_side.png"),
+    disabled: true,
   },
 ];
 
@@ -93,6 +95,8 @@ const mod = (v: number, n: number) => {
   "worklet";
   return ((v % n) + n) % n;
 };
+
+const noopSubscribe = () => () => {};
 
 const wrap = (v: number, n: number) => {
   "worklet";
@@ -195,14 +199,31 @@ function CarouselCard({
           </Text>
           <Pressable
             role="button"
-            aria-label={`${item.title} 시작하기`}
+            aria-label={
+              item.disabled ? `${item.title} 준비 중` : `${item.title} 시작하기`
+            }
+            aria-disabled={item.disabled}
+            disabled={item.disabled}
             onPress={() => onStart?.(item)}
-            style={({ pressed }) => [styles.startBtn, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.startBtn,
+              item.disabled && styles.startBtnDisabled,
+              pressed && styles.pressed,
+            ]}
           >
-            <Text style={styles.startText} maxFontSizeMultiplier={MAX_FONT_SCALE}>
-              시작하기
+            <Text
+              style={styles.startText}
+              maxFontSizeMultiplier={MAX_FONT_SCALE}
+            >
+              {item.disabled ? "준비 중" : "시작하기"}
             </Text>
-            <Feather name="chevron-right" size={15 * k} color={Colors.white} />
+            {item.disabled ? null : (
+              <Feather
+                name="chevron-right"
+                size={15 * k}
+                color={Colors.white}
+              />
+            )}
           </Pressable>
         </Animated.View>
       </View>
@@ -270,8 +291,11 @@ export function MenuCarousel({
 }) {
   const n = CARDS.length;
   const { width } = useWindowDimensions();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
   const k = Math.min(mounted ? width : BASE_W, MAX_STAGE_W) / BASE_W;
   const styles = useMemo(() => createStyles(k), [k]);
   const gapPx = CARD_GAP * k;
@@ -422,6 +446,7 @@ function createStyles(k: number) {
       justifyContent: "center",
       gap: s(2),
     },
+    startBtnDisabled: { backgroundColor: Colors.textMuted },
     startText: {
       fontFamily: Fonts.brand,
       fontSize: s(13),
