@@ -9,6 +9,7 @@ import { RoomStatus } from "@/components/order-sheet/RoomStatus";
 import { TieBreakPopup } from "@/components/room/TieBreakPopup";
 import { Colors, Fonts } from "@/constants/theme";
 import { useRoomSession } from "@/contexts/RoomSessionContext";
+import { useRoomSearchOrigin } from "@/hooks/useRoomSearchOrigin";
 import {
   getCandidateImageUrl,
   getCandidateName,
@@ -19,11 +20,12 @@ import {
 import type { RoomCandidate } from "@/lib/rooms";
 
 export default function RoomResultScreen() {
-  const { room, requestExit } = useRoomSession();
+  const { room, refresh, requestExit } = useRoomSession();
   const round = room?.current_round;
   const [closedTieBreakRound, setClosedTieBreakRound] = useState<number | null>(null);
+  const searchOrigin = useRoomSearchOrigin(room, refresh);
 
-  if (!round || round.status !== "RESULT") {
+  if (!room || !round || round.status !== "RESULT") {
     return <RoomStatus message="결과를 불러오는 중이에요." onExit={requestExit} />;
   }
 
@@ -32,16 +34,36 @@ export default function RoomResultScreen() {
   const showVotes = !round.is_uncontested;
   const tieBreak = closedTieBreakRound === round.round_id ? null : getTieBreak(round);
   const selected = getSelectedCandidate(round);
-  const handleGoToMap = () => {
-    setClosedTieBreakRound(round.round_id);
+  const roomId = room.room_id;
+  const roundId = round.round_id;
+  const canGoToMap = Boolean(
+    selected &&
+    !searchOrigin.registering &&
+    (searchOrigin.ready || searchOrigin.isHost),
+  );
+  const openMap = () => {
     if (!selected) return;
     router.push({
       pathname: "/nearby_places",
       params: {
+        roomId,
+        roundId: String(roundId),
         menuId: String(selected.menu_id),
         menuName: getCandidateName(selected),
       },
     });
+  };
+  const handleGoToMap = async () => {
+    setClosedTieBreakRound(roundId);
+    if (!canGoToMap) return;
+    if (!searchOrigin.ready && !(await searchOrigin.register())) return;
+    openMap();
+  };
+  const getMapButtonLabel = () => {
+    if (searchOrigin.registering) return "방장 위치 확인 중…";
+    if (searchOrigin.ready) return "지도 보러 가기";
+    if (!searchOrigin.isHost) return "방장 위치를 기다리는 중";
+    return searchOrigin.error ? "위치 다시 등록하기" : "지도 보러 가기";
   };
 
   return (
@@ -92,14 +114,19 @@ export default function RoomResultScreen() {
           </View>
         </ScrollView>
         <View style={styles.bottomLayout}>
+          {searchOrigin.error && (
+            <Text style={styles.errorText} accessibilityRole="alert">
+              {searchOrigin.error}
+            </Text>
+          )}
           <Pressable
-            style={[styles.mapButton, !selected && styles.mapButtonDisabled]}
-            onPress={handleGoToMap}
-            disabled={!selected}
+            style={[styles.mapButton, !canGoToMap && styles.mapButtonDisabled]}
+            onPress={() => void handleGoToMap()}
+            disabled={!canGoToMap}
             accessibilityRole="button"
-            accessibilityState={{ disabled: !selected }}
+            accessibilityState={{ disabled: !canGoToMap, busy: searchOrigin.registering }}
           >
-            <Text style={styles.mapButtonText}>지도 보러 가기</Text>
+            <Text style={styles.mapButtonText}>{getMapButtonLabel()}</Text>
           </Pressable>
           <Text style={styles.hintText}>투표는 마감 전까지 바꿀 수 있어요.</Text>
         </View>
@@ -108,7 +135,7 @@ export default function RoomResultScreen() {
         <TieBreakPopup
           candidates={tieBreak.candidates}
           pickedId={tieBreak.pickedId}
-          onGoToMap={handleGoToMap}
+          onGoToMap={() => void handleGoToMap()}
         />
       )}
     </View>
@@ -313,6 +340,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.textBrown,
     alignItems: "center",
     justifyContent: "center",
+  },
+  errorText: {
+    fontFamily: Fonts.bodyMedium,
+    fontSize: 14,
+    color: Colors.errorText,
+    textAlign: "center",
   },
   mapButtonDisabled: {
     opacity: 0.5,

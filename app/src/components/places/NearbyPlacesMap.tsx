@@ -14,6 +14,7 @@ type Props = {
     height?: number;
     dom?: DOMProps;
     places: NearbyPlace[];
+    originLabel?: string;
     selectedPlaceId: string | null;
     onSelectPlace: (placeId: string) => Promise<void>;
 };
@@ -23,6 +24,7 @@ export default function NearbyPlacesMap({
     longitude,
     height = 236,
     places,
+    originLabel = "현재 위치",
     selectedPlaceId,
     onSelectPlace,
 }: Props) {
@@ -71,7 +73,7 @@ export default function NearbyPlacesMap({
 
                 const currentDot = document.createElement("div");
 
-                currentDot.setAttribute("aria-label", "현재 위치");
+                currentDot.setAttribute("aria-label", originLabel);
 
                 Object.assign(currentDot.style, {
                     width: "16px",
@@ -176,7 +178,7 @@ export default function NearbyPlacesMap({
             });
             container.replaceChildren();
         };
-    }, [latitude, longitude, mapPlaces]);
+    }, [latitude, longitude, mapPlaces, originLabel]);
 
     useEffect(() => {
         if (!mapInstance || !selectedPlaceId) return;
