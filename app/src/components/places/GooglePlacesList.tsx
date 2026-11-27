@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Linking, useWindowDimensions, View } from "react-native";
 import { WebView } from "react-native-webview";
 import { createPlacesWidgetPayload, getNativePlacesWidgetUrl, parsePlacesWidgetMessage, type PlacesListProps } from "@/lib/places_widget";
@@ -8,28 +8,38 @@ export default function GooglePlacesList(props: PlacesListProps) {
   const frame = useRef<WebView>(null);
   const container = useRef<View>(null);
   const { height: windowHeight } = useWindowDimensions();
-  const [viewport, setViewport] = useState({ top: 0, bottom: 0 });
+  const viewport = useRef({ top: 0, bottom: 0 });
+  const measurement = useRef(0);
   const [height, setHeight] = useState(150);
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
   const url = getNativePlacesWidgetUrl();
   const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
-  const payload = JSON.stringify({ ...createPlacesWidgetPayload(props), viewport });
-  const script = `window.WhatbobPlaces?.update(${payload});true;`;
+  const payload = JSON.stringify(createPlacesWidgetPayload(props));
+  const sendPayload = useCallback(() => {
+    const data = JSON.stringify({ ...JSON.parse(payload), viewport: viewport.current });
+    frame.current?.injectJavaScript(`window.WhatbobPlaces?.update(${data});true;`);
+  }, [payload]);
 
   const measureViewport = useCallback(() => {
+    const currentMeasurement = ++measurement.current;
     container.current?.measureInWindow((_x, y, _width, viewHeight) => {
+      if (currentMeasurement !== measurement.current) return;
       const top = Math.max(0, -y);
       const bottom = Math.max(0, Math.min(viewHeight, windowHeight - y));
-      setViewport((previous) => previous.top === top && previous.bottom === bottom ? previous : { top, bottom });
+      if (viewport.current.top === top && viewport.current.bottom === bottom) return;
+      viewport.current = { top, bottom };
+      frame.current?.injectJavaScript(`window.WhatbobPlaces?.setViewport?.(${JSON.stringify(viewport.current)});true;`);
     });
   }, [windowHeight]);
 
-  useEffect(() => { measureViewport(); }, [measureViewport, props.scrollOffset, height]);
+  useImperativeHandle(props.viewportRef, () => ({ updateViewport: measureViewport }), [measureViewport]);
+
+  useEffect(() => { measureViewport(); }, [measureViewport, height]);
 
   useEffect(() => {
-    if (ready) frame.current?.injectJavaScript(script);
-  }, [ready, script]);
+    if (ready) sendPayload();
+  }, [ready, sendPayload]);
 
   useEffect(() => {
     if (ready || !url || !apiKey) return;
@@ -60,7 +70,7 @@ export default function GooglePlacesList(props: PlacesListProps) {
           const failedUrl = event.nativeEvent.url;
           if (failedUrl === url || failedUrl === url.replace(/\.html(?=$|\?)/, "")) setFailed(true);
         }}
-        onLoadEnd={() => frame.current?.injectJavaScript(script)}
+        onLoadEnd={sendPayload}
         onMessage={(event) => {
           const message = parsePlacesWidgetMessage(event.nativeEvent.data);
           if (!message) return;

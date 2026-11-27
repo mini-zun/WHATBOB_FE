@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPlacesWidgetPayload, parsePlacesWidgetMessage, type PlacesListProps } from "@/lib/places_widget";
+import { createPlacesWidgetPayload, parsePlacesWidgetMessage, PLACES_WIDGET_CHANNEL, type PlacesListProps } from "@/lib/places_widget";
 import PlacesListFallback from "./PlacesListFallback";
 
 export default function GooglePlacesList(props: PlacesListProps) {
@@ -11,15 +11,24 @@ export default function GooglePlacesList(props: PlacesListProps) {
   const payload = JSON.stringify(createPlacesWidgetPayload(props));
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
-  const sendPayload = useCallback(() => {
+  const getViewport = useCallback(() => {
     const rect = frame.current?.getBoundingClientRect();
-    if (!rect) return;
-    const viewport = {
+    if (!rect) return null;
+    return {
       top: Math.max(0, -rect.top),
       bottom: Math.max(0, Math.min(rect.height, window.innerHeight - rect.top)),
     };
-    frame.current?.contentWindow?.postMessage({ ...JSON.parse(payload), viewport }, origin);
-  }, [payload, origin]);
+  }, []);
+
+  const sendPayload = useCallback(() => {
+    const viewport = getViewport();
+    if (viewport) frame.current?.contentWindow?.postMessage({ ...JSON.parse(payload), viewport }, origin);
+  }, [payload, origin, getViewport]);
+
+  const sendViewport = useCallback(() => {
+    const viewport = getViewport();
+    if (viewport) frame.current?.contentWindow?.postMessage({ channel: PLACES_WIDGET_CHANNEL, type: "viewport", viewport }, origin);
+  }, [getViewport, origin]);
 
   useEffect(() => { latest.current = props; }, [props]);
 
@@ -42,10 +51,14 @@ export default function GooglePlacesList(props: PlacesListProps) {
 
   useEffect(() => {
     sendPayload();
+  }, [sendPayload]);
+
+  useEffect(() => {
+    sendViewport();
     let scheduled = 0;
     const schedule = () => {
       if (scheduled) return;
-      scheduled = window.requestAnimationFrame(() => { scheduled = 0; sendPayload(); });
+      scheduled = window.requestAnimationFrame(() => { scheduled = 0; sendViewport(); });
     };
     window.addEventListener("scroll", schedule, true);
     window.addEventListener("resize", schedule);
@@ -54,7 +67,7 @@ export default function GooglePlacesList(props: PlacesListProps) {
       window.removeEventListener("resize", schedule);
       window.cancelAnimationFrame(scheduled);
     };
-  }, [sendPayload, height]);
+  }, [sendViewport, height]);
 
   if (!process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() || failed) {
     return <PlacesListFallback {...props} message={failed ? "평점을 불러오지 못했어요." : undefined} />;

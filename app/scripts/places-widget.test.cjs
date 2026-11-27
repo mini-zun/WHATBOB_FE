@@ -23,8 +23,9 @@ function bridge(env = {}) {
   return exports;
 }
 
-function page({ failGoogle = false } = {}) {
+function page({ failGoogle = false, native = false } = {}) {
   const elements = [];
+  const fontLoads = [];
   class Element {
     constructor(tag) { this.tag = tag; this.children = []; this.listeners = {}; this.attributes = {}; this.textContent = ''; elements.push(this); }
     append(...children) { for (const child of children) { child.remove(); child.parent = this; this.children.push(child); } }
@@ -46,20 +47,26 @@ function page({ failGoogle = false } = {}) {
   let timerId = 0;
   let imports = 0;
   const window = {
-    location: { origin: 'https://widget.example.com' },
+    location: { origin: 'https://widget.example.com', href: 'https://widget.example.com/google-place-ratings.html' },
     parent: { postMessage: (message) => messages.push(message) },
     addEventListener: (name, listener) => { listeners[name] = listener; },
     google: { maps: { importLibrary: async () => { imports++; if (failGoogle) throw new Error('denied'); return {}; } } },
   };
+  if (native) window.ReactNativeWebView = { postMessage: (message) => messages.push(JSON.parse(message)) };
   vm.runInNewContext(fs.readFileSync(path.join(rootPath, 'public/google-place-ratings.js'), 'utf8'), {
     window,
-    document: { getElementById: () => root, head: new Element('head'), createElement: (tag) => new Element(tag) },
+    document: { getElementById: () => root, head: new Element('head'), createElement: (tag) => new Element(tag), fonts: { add() {} } },
+    FontFace: class { constructor(family, source) { fontLoads.push({ family, source }); } load() { return Promise.resolve(); } },
+    fetch: async (url) => {
+      assert.equal(url.href, 'https://widget.example.com/google-place-fonts.json');
+      return { ok: true, json: async () => ({ BusanDandiMyeongjoM: '/assets/current-web-font.otf' }) };
+    },
     ResizeObserver: class { observe() {} disconnect() {} },
     URL, URLSearchParams,
     setTimeout: (fn) => { const id = ++timerId; timers.set(id, fn); return id; },
     clearTimeout: (id) => timers.delete(id),
   });
-  return { window, root, messages, listeners, elements, timers, get imports() { return imports; } };
+  return { window, root, messages, listeners, elements, timers, fontLoads, get imports() { return imports; } };
 }
 
 function payload(places, extra = {}) {
@@ -163,4 +170,48 @@ test('all places remain visible in the list but only cards in the viewport reque
   await flush();
   assert.equal(p.elements.filter((element) => element.tag === 'gmp-place-details-compact').length, 2);
   assert.equal(p.imports, 1);
+});
+
+test('viewport-only messages load visible ratings without resending or rebuilding the list', async () => {
+  const p = page();
+  const places = [restaurant, { ...restaurant, id: 'two', googlePlaceId: 'google-two' }];
+  p.window.WhatbobPlaces.update(payload(places, { viewport: { top: 0, bottom: 0 } }));
+  const firstCard = p.root.children[0];
+  p.listeners.message({ origin: p.window.location.origin, source: p.window.parent,
+    data: { channel: 'whatbob-places-v1', type: 'viewport', viewport: { top: 150, bottom: 300 } } });
+  await flush();
+  assert.equal(p.root.children[0], firstCard);
+  assert.equal(p.root.children[1].children[1].children.length, 1);
+  assert.equal(p.root.children[0].children[1].children.length, 0);
+  p.window.WhatbobPlaces.setViewport({ top: 0, bottom: 150 });
+  await flush();
+  assert.equal(p.root.children[0].children[1].children.length, 1);
+  assert.equal(p.imports, 1);
+});
+
+test('native loads fonts from the web deployment and ignores an old app font URL', async () => {
+  const p = page({ native: true });
+  const data = payload([{ ...restaurant, googlePlaceId: null }], {
+    fonts: { BusanDandiMyeongjoM: '/assets/old-app-font.otf' },
+  });
+  p.window.WhatbobPlaces.update(data);
+  await flush();
+  p.window.WhatbobPlaces.update(data);
+  await flush();
+  assert.equal(p.fontLoads.length, 1);
+  assert.ok(p.fontLoads[0].source.includes('current-web-font.otf'));
+  assert.equal(p.fontLoads[0].source.includes('old-app-font'), false);
+});
+
+test('font manifest uses the current web source assets and native sends no font hashes', () => {
+  const { createPlacesFontManifest } = require('./places-font-manifest.cjs');
+  const fonts = createPlacesFontManifest(rootPath);
+  assert.equal(Object.keys(fonts).length, 2);
+  for (const url of Object.values(fonts)) assert.match(url, /^\/assets\/assets\/fonts\/.+\.[a-f0-9]{32}\.otf$/);
+  const exported = {};
+  const code = ts.transpileModule(fs.readFileSync(path.join(rootPath, 'src/lib/places_widget_fonts.ts'), 'utf8'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS },
+  }).outputText;
+  vm.runInNewContext(code, { exports: exported });
+  assert.equal(Object.keys(exported.getPlacesWidgetFonts()).length, 0);
 });

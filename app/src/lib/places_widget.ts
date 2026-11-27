@@ -1,13 +1,16 @@
 import type { NearbyPlace } from "@/types/places";
+import type { Ref } from "react";
 import { getPlacesWidgetFonts } from "./places_widget_fonts";
 
 export const PLACES_WIDGET_CHANNEL = "whatbob-places-v1";
+
+export type PlacesViewportHandle = { updateViewport: () => void };
 
 export type PlacesListProps = {
   places: NearbyPlace[];
   selectedPlaceId: string | null;
   disabled: boolean;
-  scrollOffset?: number;
+  viewportRef?: Ref<PlacesViewportHandle>;
   onSelectPlace: (placeId: string) => Promise<void>;
 };
 

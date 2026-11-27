@@ -11,6 +11,7 @@ import { getCurrentLocation, type CurrentLocation } from "@/lib/location";
 import { getNearbyPlaces } from "@/lib/places";
 import { getFoodHistoryOperationKey, recordFoodHistory } from "@/lib/food_history";
 import type { NearbyPlacesData, SearchRadius } from "@/types/places";
+import type { PlacesViewportHandle } from "@/lib/places_widget";
 
 export default function NearbyPlacesScreen() {
     const { menuId, menuName, recommendationId, mealKey } = useLocalSearchParams<{
@@ -28,7 +29,7 @@ export default function NearbyPlacesScreen() {
     const [radiusMenuOpen, setRadiusMenuOpen] = useState(false);
     const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(null);
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
-    const [scrollOffset, setScrollOffset] = useState(0);
+    const placesViewportRef = useRef<PlacesViewportHandle | null>(null);
     const saveInFlight = useRef(false);
     const savedKeys = useRef(new Set<string>());
     const [mealSave, setMealSave] = useState<{
@@ -156,7 +157,7 @@ export default function NearbyPlacesScreen() {
                 showsVerticalScrollIndicator={false}
                 bounces={false}
                 scrollEventThrottle={100}
-                onScroll={(event) => setScrollOffset(event.nativeEvent.contentOffset.y)}
+                onScroll={() => placesViewportRef.current?.updateViewport()}
             >
                 <View style={styles.page}>
                     <View style={styles.header}>
@@ -288,7 +289,7 @@ export default function NearbyPlacesScreen() {
                                             selectedPlaceId={selectedPlaceId}
                                             disabled={!operationKey || mealStatus?.status === "saving"}
                                             onSelectPlace={handleChoosePlace}
-                                            scrollOffset={scrollOffset}
+                                            viewportRef={placesViewportRef}
                                         />
                                     )}
                                 </View>

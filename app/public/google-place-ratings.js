@@ -5,6 +5,16 @@
   let state = { places: [], selectedPlaceId: null, disabled: true, apiKey: '' };
   let googleLoading = null;
   const fontSources = new Map();
+  let deploymentFonts;
+
+  function loadDeploymentFonts() {
+    if (!deploymentFonts) {
+      deploymentFonts = fetch(new URL('./google-place-fonts.json', window.location.href), { cache: 'no-store' })
+        .then((response) => { if (!response.ok) throw new Error('FONT_MANIFEST_UNAVAILABLE'); return response.json(); })
+        .then(loadFonts)
+        .catch(() => {});
+    }
+  }
 
   function loadFonts(fonts) {
     if (!fonts || typeof fonts !== 'object') return;
@@ -35,6 +45,13 @@
       card.requested = true;
       void renderRating(card, place);
     });
+  }
+
+  function setViewport(viewport) {
+    if (!viewport || !Number.isFinite(viewport.top) || !Number.isFinite(viewport.bottom) ||
+        viewport.top < 0 || viewport.bottom < viewport.top) return;
+    state.viewport = { top: viewport.top, bottom: viewport.bottom };
+    loadVisibleRatings();
   }
 
   function emit(message) {
@@ -187,7 +204,8 @@
     });
     const keyChanged = data.apiKey !== state.apiKey;
     state = { ...data, places };
-    loadFonts(data.fonts);
+    if (window.ReactNativeWebView) loadDeploymentFonts();
+    else loadFonts(data.fonts);
     for (const [id, card] of cards) {
       if (!seen.has(id)) { card.cleanup?.(); card.element.remove(); cards.delete(id); }
     }
@@ -213,10 +231,11 @@
     emit({ type: 'ready' });
   }
 
-  window.WhatbobPlaces = { update };
+  window.WhatbobPlaces = { update, setViewport };
   window.addEventListener('message', (event) => {
     if (event.origin !== window.location.origin || event.source !== window.parent) return;
-    update(event.data);
+    if (event.data?.channel === channel && event.data.type === 'viewport') setViewport(event.data.viewport);
+    else update(event.data);
   });
   window.addEventListener('pagehide', () => {
     cards.forEach((card) => card.cleanup?.());
