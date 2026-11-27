@@ -33,6 +33,7 @@ export type MenuCard = {
   bg: string;
   image: number;
   sideImage: number;
+  disabled?: boolean;
 };
 
 const CARDS: MenuCard[] = [
@@ -56,16 +57,6 @@ const CARDS: MenuCard[] = [
     image: require("@/assets/images/with_form_icon.png"),
     sideImage: require("@/assets/images/with_form_icon_side.png"),
   },
-  // {
-  //   key: "bowl",
-  //   title: "그릇에 골라담기",
-  //   desc: "원하는 재료와 취향을 담아\n메뉴를 추천해요.",
-  //   sideTitle: "그릇에\n골라담기",
-  //   sideDesc: "원하는 재료와\n취향을 담아\n메뉴를 추천해요.",
-  //   bg: Colors.cardGreen,
-  //   image: require("@/assets/images/with_bowl_icon.png"),
-  //   sideImage: require("@/assets/images/with_bowl_icon_side.png"),
-  // },
   {
     key: "preparing",
     title: "메뉴 준비 중이에요!",
@@ -75,6 +66,7 @@ const CARDS: MenuCard[] = [
     bg: Colors.cardGreen,
     image: require("@/assets/images/preparing_icon.png"),
     sideImage: require("@/assets/images/preparing_side.png"),
+    disabled: true,
   },
 ];
 
@@ -207,10 +199,15 @@ function CarouselCard({
           </Text>
           <Pressable
             role="button"
-            aria-label={`${item.title} 시작하기`}
+            aria-label={
+              item.disabled ? `${item.title} 준비 중` : `${item.title} 시작하기`
+            }
+            aria-disabled={item.disabled}
+            disabled={item.disabled}
             onPress={() => onStart?.(item)}
             style={({ pressed }) => [
               styles.startBtn,
+              item.disabled && styles.startBtnDisabled,
               pressed && styles.pressed,
             ]}
           >
@@ -218,9 +215,15 @@ function CarouselCard({
               style={styles.startText}
               maxFontSizeMultiplier={MAX_FONT_SCALE}
             >
-              시작하기
+              {item.disabled ? "준비 중" : "시작하기"}
             </Text>
-            <Feather name="chevron-right" size={15 * k} color={Colors.white} />
+            {item.disabled ? null : (
+              <Feather
+                name="chevron-right"
+                size={15 * k}
+                color={Colors.white}
+              />
+            )}
           </Pressable>
         </Animated.View>
       </View>
@@ -443,6 +446,7 @@ function createStyles(k: number) {
       justifyContent: "center",
       gap: s(2),
     },
+    startBtnDisabled: { backgroundColor: Colors.textMuted },
     startText: {
       fontFamily: Fonts.brand,
       fontSize: s(13),
