@@ -89,9 +89,7 @@ const room = (status = 'ANSWERING', version = 1) => ({
 test('only current unsubmitted participants enter; cancellation returns to lobby', () => {
   assert.equal(flow.getRoomDestination(room(), lobby), questionPath);
   assert.equal(flow.getRoomDestination(room(), questionPath), null);
-  for (const status of ['ANSWERING_PAUSED', 'VOTING', 'VOTING_PAUSED', 'RESULT']) {
-    assert.equal(flow.getRoomDestination(room(status), lobby), null);
-  }
+  assert.equal(flow.getRoomDestination(room('ANSWERING_PAUSED'), lobby), null);
   assert.equal(flow.isAnsweringRound(room('ANSWERING_PAUSED')), true);
   assert.equal(flow.getRoomDestination(room('CANCELLED'), questionPath), lobby);
   assert.equal(flow.getRoomDestination({ ...room(), current_round: null }, questionPath), lobby);
@@ -100,7 +98,33 @@ test('only current unsubmitted participants enter; cancellation returns to lobby
     { viewer_state: { round_id: 9, has_submitted_order_sheet: false } },
     { viewer_state: { round_id: 10, has_submitted_order_sheet: true } },
   ]) assert.equal(flow.getRoomDestination({ ...room(), ...update }, lobby), null);
-  assert.equal(flow.getRoomDestination(room(), `${lobby}/vote`), null);
+  assert.equal(flow.getRoomDestination(room(), `${lobby}/vote`), questionPath);
+});
+
+test('voting and result rounds move current participants to their screens', () => {
+  const votePath = `${lobby}/vote`;
+  const resultPath = `${lobby}/result`;
+  for (const status of ['VOTING', 'VOTING_PAUSED']) {
+    for (const path of [lobby, questionPath, resultPath]) {
+      assert.equal(flow.getRoomDestination(room(status), path), votePath);
+    }
+    assert.equal(flow.getRoomDestination(room(status), votePath), null);
+  }
+  for (const path of [lobby, questionPath, votePath]) {
+    assert.equal(flow.getRoomDestination(room('RESULT'), path), resultPath);
+  }
+  assert.equal(flow.getRoomDestination(room('RESULT'), resultPath), null);
+  for (const path of [votePath, resultPath]) {
+    assert.equal(flow.getRoomDestination(room('CANCELLED'), path), lobby);
+  }
+  for (const update of [
+    { is_member: false }, { status: 'CLOSED' },
+    { viewer_state: { round_id: 9, has_submitted_order_sheet: true } },
+  ]) assert.equal(flow.getRoomDestination({ ...room('VOTING'), ...update }, lobby), null);
+  assert.equal(flow.getRoomScreenPathname(votePath), '/room/[roomId]/vote');
+  assert.equal(flow.getRoomScreenPathname(resultPath), '/room/[roomId]/result');
+  assert.equal(flow.getRoomScreenPathname(questionPath), '/room/[roomId]/ordersheet');
+  assert.equal(flow.getRoomScreenPathname(lobby), '/room/[roomId]');
 });
 
 test('older room snapshots cannot roll back the current round', () => {
@@ -110,7 +134,7 @@ test('older room snapshots cannot roll back the current round', () => {
 });
 
 class ApiError extends Error {
-  constructor(message, status) { super(message); this.status = status; }
+  constructor(message, status, code) { super(message); this.status = status; this.code = code; }
 }
 function deferred() {
   let resolve, reject;
@@ -259,6 +283,7 @@ test('layout replaces once per transition and defers navigation during exit conf
       usePathname: () => pathname, useRootNavigationState: () => ({ key: 'root' }),
       router: { replace: value => moves.push(value) } },
     '@/components/order-sheet/RoomStatus': { RoomStatus: 'RoomStatus' },
+    '@/components/room/HostDecisionPop': { HostDecisionPop: 'HostDecisionPop' },
     '@/contexts/RoomSessionContext': { RoomSessionProvider: 'Provider', useRoomSession: () => session },
     '@/lib/room-flow': flow, '@/lib/rooms': { parseRoomId: value => value },
   });
@@ -293,31 +318,95 @@ test('ordersheet route gates direct access and passes the common exit callback',
   session.room = { ...room(), is_member: false }; assert.equal(Screen().type, 'Status');
 });
 
-test('room form keeps answers through pause/resume and never calls personal or submit APIs', async () => {
+function mountRoomForm() {
   const runtime = hooks();
-  const request = deferred(); let queries = 0, exits = 0;
+  const request = deferred();
+  const calls = { queries: 0, exits: 0, refreshes: 0, submits: [], suggestions: [] };
+  const submitResults = [];
   const question = id => ({ id, question_text: 'question', options: [{ option_id: 'a', label: 'A' }] });
   const { RoomOrderSheet } = load('src/components/order-sheet/RoomOrderSheet.tsx', {
     ...runtime.modules,
     'react-native': { Pressable: 'Pressable', Text: 'Text', View: 'View', useWindowDimensions: () => ({ height: 852 }) },
     'react-native-safe-area-context': { SafeAreaView: 'SafeArea', useSafeAreaInsets: () => ({ top: 0, bottom: 0 }) },
-    '@/lib/rooms': { getRoomQuestions() { queries++; return request.promise; } },
+    '@/lib/api': { ApiError },
+    '@/lib/rooms': {
+      ROOM_ERROR_CODE: { noMatchingMenus: 'NO_MATCHING_MENUS_FOR_ANSWERS' },
+      getRoomQuestions() { calls.queries++; return request.promise; },
+      submitRoomOrderSheet(...args) {
+        calls.submits.push(args);
+        const next = deferred(); submitResults.push(next); return next.promise;
+      },
+      getRoomNoResultsSuggestions(...args) {
+        calls.suggestions.push(args);
+        return Promise.resolve({
+          suggested_answer_changes: [{ question_id: 2, replacement_option_id: 'any', display_text: 'change', display_menu_count: 3 }],
+          can_review_my_answers: true,
+        });
+      },
+    },
     './OrderSheetQuestions': { OrderSheetQuestions: 'Questions' }, './orderSheetStyles': { orderSheetStyles: {} },
   });
-  const props = { roomId, roundId: 10, roundStatus: 'ANSWERING', onRefreshRoom() {}, onExit: () => exits++ };
+  const props = {
+    roomId, roundId: 10, roundNo: 1, roundStatus: 'ANSWERING',
+    onRefreshRoom: () => calls.refreshes++, onExit: () => calls.exits++,
+  };
   runtime.mount(RoomOrderSheet, props);
+  return { runtime, request, calls, submitResults, question, props };
+}
+
+function plain(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function children(output) {
+  return [output.props.children].flat(Infinity).filter(Boolean);
+}
+
+test('room form keeps answers through pause/resume and submits once on the last answer', async () => {
+  const { runtime, request, calls, submitResults, question, props } = mountRoomForm();
   request.resolve({ round_id: 10, round_status: 'ANSWERING', has_submitted: false, questions: [question(1), question(2)] });
   await settle(runtime);
   runtime.output.props.onAnswer('a'); runtime.render(); assert.equal(runtime.output.props.questionIndex, 1);
   runtime.render({ ...props, roundStatus: 'ANSWERING_PAUSED' });
   assert.equal(runtime.output.props.disabled, true);
   runtime.output.props.onAnswer('a'); runtime.render(); assert.equal(runtime.output.props.selectedOptionId, undefined);
+  assert.equal(calls.submits.length, 0);
   runtime.render(props); runtime.output.props.onBack(); runtime.render();
   assert.equal(runtime.output.props.selectedOptionId, 'a');
-  runtime.output.props.onAnswer('a'); runtime.render(); runtime.output.props.onAnswer('a'); runtime.render();
+  runtime.output.props.onAnswer('a'); runtime.render();
+  runtime.output.props.onAnswer('a'); runtime.render();
   assert.equal(runtime.output.props.questionIndex, 1);
-  assert.equal(runtime.output.props.selectedOptionId, 'a');
-  assert.equal(queries, 1);
-  runtime.output.props.onBack(); runtime.render(); runtime.output.props.onBack(); assert.equal(exits, 1);
+  assert.equal(runtime.output.props.disabled, true);
+  runtime.output.props.onAnswer('a'); runtime.output.props.onBack(); runtime.render();
+  assert.equal(calls.submits.length, 1);
+  assert.equal(calls.exits, 0);
+  const [submitRoomId, fence, answers] = calls.submits[0];
+  assert.equal(submitRoomId, roomId);
+  assert.deepEqual(plain(fence), { round_id: 10, round_no: 1 });
+  assert.deepEqual(plain(answers), [{ question_id: 1, option_id: 'a' }, { question_id: 2, option_id: 'a' }]);
+  submitResults[0].resolve({ submitted: true }); await settle(runtime);
+  assert.equal(calls.refreshes, 1);
+  assert.equal(calls.queries, 1);
+  runtime.output.props.onBack(); runtime.render(); runtime.output.props.onBack(); assert.equal(calls.exits, 1);
+  runtime.unmount();
+});
+
+test('room form offers answer changes when no menu matches and resubmits the change', async () => {
+  const { runtime, request, calls, submitResults, question } = mountRoomForm();
+  request.resolve({ round_id: 10, round_status: 'ANSWERING', has_submitted: false, questions: [question(1), question(2)] });
+  await settle(runtime);
+  runtime.output.props.onAnswer('a'); runtime.render();
+  runtime.output.props.onAnswer('a'); runtime.render();
+  submitResults[0].reject(new ApiError('no menus', 409, 'NO_MATCHING_MENUS_FOR_ANSWERS'));
+  await settle(runtime); await settle(runtime);
+  assert.equal(calls.suggestions.length, 1);
+  assert.equal(calls.refreshes, 0);
+  const pressables = children(runtime.output).filter(child => child.type === 'Pressable');
+  const change = pressables.find(child => child.props.children.props.children === 'change');
+  const review = pressables.find(child => child.props.children.props.children === '내 답변 다시 보기');
+  assert.ok(change && review);
+  change.props.onPress(); runtime.render();
+  assert.equal(calls.submits.length, 2);
+  assert.deepEqual(plain(calls.submits[1][2]), [{ question_id: 1, option_id: 'a' }, { question_id: 2, option_id: 'any' }]);
   runtime.unmount();
 });
