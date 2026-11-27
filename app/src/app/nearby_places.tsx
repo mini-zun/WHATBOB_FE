@@ -4,12 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import NearbyPlacesMap from "@/components/places/NearbyPlacesMap";
+import GooglePlacesList from "@/components/places/GooglePlacesList";
 import NearbyPlacesTitle from "@/components/places/NearbyPlacesTitle";
 import { Colors, Fonts } from "@/constants/theme";
 import { getCurrentLocation, type CurrentLocation } from "@/lib/location";
 import { getNearbyPlaces } from "@/lib/places";
 import { getFoodHistoryOperationKey, recordFoodHistory } from "@/lib/food_history";
 import type { NearbyPlacesData, SearchRadius } from "@/types/places";
+import type { PlacesViewportHandle } from "@/lib/places_widget";
 
 export default function NearbyPlacesScreen() {
     const { menuId, menuName, recommendationId, mealKey } = useLocalSearchParams<{
@@ -27,6 +29,7 @@ export default function NearbyPlacesScreen() {
     const [radiusMenuOpen, setRadiusMenuOpen] = useState(false);
     const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(null);
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+    const placesViewportRef = useRef<PlacesViewportHandle | null>(null);
     const saveInFlight = useRef(false);
     const savedKeys = useRef(new Set<string>());
     const [mealSave, setMealSave] = useState<{
@@ -153,6 +156,8 @@ export default function NearbyPlacesScreen() {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 bounces={false}
+                scrollEventThrottle={100}
+                onScroll={() => placesViewportRef.current?.updateViewport()}
             >
                 <View style={styles.page}>
                     <View style={styles.header}>
@@ -279,30 +284,13 @@ export default function NearbyPlacesScreen() {
                                     {data.places.length === 0 ? (
                                         <Text>주변에 검색된 음식점이 없어요.</Text>
                                     ) : (
-                                        data.places.map((place, index) => (
-                                            <Pressable
-                                                key={place.kakao_place_id}
-                                                accessibilityRole="button"
-                                                accessibilityState={{
-                                                    selected: selectedPlaceId === place.kakao_place_id,
-                                                    disabled: !operationKey || mealStatus?.status === "saving",
-                                                }}
-                                                disabled={!operationKey || mealStatus?.status === "saving"}
-                                                onPress={() => {
-                                                    void handleChoosePlace(place.kakao_place_id);
-                                                }}
-                                                style={styles.placeItem}
-                                            >
-                                                <Text style={styles.placeName} numberOfLines={1}>
-                                                    {index + 1} · {place.name}
-                                                </Text>
-                                                <View style={styles.placeBottomRow}>
-                                                    <Text style={styles.placeDistance}>
-                                                       도보 {(place.distance_m / 1000).toFixed(1)}km
-                                                    </Text>
-                                                </View>
-                                            </Pressable>
-                                        ))
+                                        <GooglePlacesList
+                                            places={data.places}
+                                            selectedPlaceId={selectedPlaceId}
+                                            disabled={!operationKey || mealStatus?.status === "saving"}
+                                            onSelectPlace={handleChoosePlace}
+                                            viewportRef={placesViewportRef}
+                                        />
                                     )}
                                 </View>
                             ) : null}
@@ -437,17 +425,6 @@ const styles = StyleSheet.create({
         gap: 13,
     },
 
-    placeItem: {
-        minHeight: 66,
-        paddingHorizontal: 24,
-        paddingVertical: 6,
-        borderRadius: 14,
-        borderWidth: 1.9,
-        borderColor: "rgba(119, 119, 119, 0.2)",
-        backgroundColor: "rgba(249, 239, 221, 0.2)",
-        gap: 2,
-    },
-
     saveMessage: {
         fontFamily: Fonts.bodyRegular,
         color: Colors.textBrown,
@@ -456,25 +433,6 @@ const styles = StyleSheet.create({
     saveError: {
         fontFamily: Fonts.bodyRegular,
         color: Colors.errorText,
-    },
-
-    placeName: {
-        fontFamily: Fonts.nonpreferencefood,
-        fontSize: 22.4,
-        lineHeight: 28,
-        color: Colors.maintext,
-    },
-
-    placeBottomRow: {
-        flexDirection: "row",
-        justifyContent: "flex-end",
-    },
-
-    placeDistance: {
-        fontFamily: Fonts.bodyDesc,
-        fontSize: 16,
-        lineHeight: 20,
-        color: Colors.textSecondary,
     },
 
 });
