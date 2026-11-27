@@ -11,11 +11,7 @@ import { getCurrentLocation, type CurrentLocation } from "@/lib/location";
 import { getNearbyPlaces, getRoomNearbyPlaces } from "@/lib/places";
 import { parseRoomId } from "@/lib/rooms";
 import { openKakaoDirections } from "@/lib/kakao_directions";
-import {
-    getFoodHistoryOperationKey,
-    getRoomFoodHistoryOperationKey,
-    recordFoodHistory,
-} from "@/lib/food_history";
+import { createMealKey, getFoodHistoryOperationKey, getRoomFoodHistoryOperationKey, recordFoodHistory } from "@/lib/food_history";
 import type { NearbyPlacesData, SearchRadius } from "@/types/places";
 import type { PlacesViewportHandle } from "@/lib/places_widget";
 
@@ -97,7 +93,7 @@ export default function NearbyPlacesScreen() {
     useEffect(() => {
         if (!isValidMenu || room || operationKey) return;
         router.setParams({
-            mealKey: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`,
+            mealKey: createMealKey(),
         });
     }, [isValidMenu, room, operationKey]);
 
