@@ -26,6 +26,10 @@ type FoodHistoryCreateResponse = {
   message: string | null;
 };
 
+export function createMealKey(): string {
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`;
+}
+
 export function getFoodHistoryOperationKey(
   menuId: number,
   recommendationId?: string,

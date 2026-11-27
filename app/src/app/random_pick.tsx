@@ -20,6 +20,7 @@ import { scheduleOnRN } from "react-native-worklets";
 
 import { getRandomMenu, type RandomMenu } from "@/lib/random_menu";
 import { getAuthRestartMessage } from "@/lib/auth_recovery";
+import { createMealKey } from "@/lib/food_history";
 import FoodIllustration from "@/components/FoodIllustration";
 
 const twinkle = (repeats: number) =>
@@ -47,6 +48,7 @@ export default function PickWithFriendScreen() {
   const [menuOnceShown, setMenuOnceShown] = useState(false);
 
   const [menu, setMenu] = useState<RandomMenu | null>(null);
+  const [mealKey, setMealKey] = useState<string | null>(null);
   const [menuError, setMenuError] = useState<string | null>(null);
   const [seenFoodList, setSeenFoodList] = useState<string[]>([]);
   const [authRestartMessage, setAuthRestartMessage] = useState<string | null>(
@@ -69,6 +71,7 @@ export default function PickWithFriendScreen() {
     try {
       const picked = await getRandomMenu([], seenFoodList);
       setMenu(picked);
+      setMealKey(createMealKey());
       setSeenFoodList((prev) => [...prev, picked.name]);
     } catch (e) {
       const restartMessage = getAuthRestartMessage(e);
@@ -103,12 +106,13 @@ export default function PickWithFriendScreen() {
   };
 
   const handleSelectMenu = () => {
-    if (!menu) return;
+    if (!menu || !mealKey) return;
     router.push({
       pathname: "/nearby_places",
       params: {
         menuId: String(menu.menu_id),
         menuName: menu.name,
+        mealKey,
       },
     });
   };
