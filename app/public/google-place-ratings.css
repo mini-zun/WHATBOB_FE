@@ -1,0 +1,16 @@
+@font-face { font-family: BusanDandiMyeongjoM; src: url('./places-widget/BusanDandiMyeongjoM.otf'); font-display: swap; }
+@font-face { font-family: Cafe24Simplehae; src: url('./places-widget/Cafe24Simplehae-v2.0.otf'); font-display: swap; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: transparent; }
+body { color: #000; font-family: sans-serif; }
+#places { display: flex; flex-direction: column; gap: 13px; }
+.place { border: 1.9px solid rgba(119,119,119,.2); border-radius: 14px; background: rgba(249,239,221,.2); padding: 6px 24px; min-height: 66px; }
+.choose { display: block; border: 0; padding: 0; width: 100%; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.choose:disabled { cursor: default; opacity: .6; }
+.choose:focus-visible { outline: 2px solid #886137; outline-offset: 3px; }
+.name { display: block; font-family: BusanDandiMyeongjoM, serif; font-size: 22.4px; line-height: 28px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.distance { display: block; text-align: right; color: #777; font-family: Cafe24Simplehae, sans-serif; font-size: 16px; line-height: 20px; }
+.rating { margin-top: 5px; }
+.status { margin: 4px 0; color: #777; font-size: 14px; line-height: 20px; }
+.retry { color: #6a3907; background: transparent; border: 0; padding: 4px 0; cursor: pointer; font: inherit; }
+gmp-place-details-compact { display: block; width: 100%; padding: 0; margin: 0; border: none; background-color: transparent; color-scheme: light; }
