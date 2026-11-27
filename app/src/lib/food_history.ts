@@ -49,6 +49,20 @@ export function getFoodHistoryOperationKey(
   return null;
 }
 
+export function getRoomFoodHistoryOperationKey(
+  roomId: string,
+  roundId: number,
+  menuId: number,
+): string | null {
+  const room = roomId.replace(/-/g, "").toLowerCase();
+  if (!/^[0-9a-f]{32}$/.test(room)) return null;
+  if (!Number.isSafeInteger(roundId) || roundId <= 0) return null;
+  if (!Number.isSafeInteger(menuId) || menuId <= 0) return null;
+
+  const key = `meal:room:${room}:${roundId}:${menuId}`;
+  return key.length <= 64 ? key : null;
+}
+
 export async function recordFoodHistory(
   menuId: number,
   idempotencyKey: string,

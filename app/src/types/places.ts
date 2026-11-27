@@ -32,3 +32,17 @@ export type NearbyPlacesResponse = {
   data: NearbyPlacesData | null;
   message: string | null;
 };
+
+export type RoomNearbyPlacesData = NearbyPlacesData & {
+    round_id: number;
+    search_origin: {
+        latitude: number;
+        longitude: number;
+    };
+};
+
+export type RoomNearbyPlacesResponse = {
+    success: boolean;
+    data: RoomNearbyPlacesData | null;
+    message: string | null;
+};
