@@ -436,7 +436,10 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
             disabled={profileImageBusy}
             accessibilityRole="button"
             accessibilityLabel="프로필 사진 변경"
-            accessibilityState={{ disabled: profileImageBusy, busy: profileImageBusy }}
+            accessibilityState={{
+              disabled: profileImageBusy,
+              busy: profileImageBusy,
+            }}
           >
             <View style={styles.profileIconSec}>
               {displayedProfileImage ? (
@@ -531,7 +534,7 @@ export function SideMenuDrawer({ visible, onClose }: Props) {
           {isKakaoLinked && (
             <View style={styles.kakaoCard}>
               <Image
-                source={require("@/assets/images/kakao_icon.png")}
+                source={require("@/assets/images/kakao_icon.svg")}
                 contentFit="contain"
                 style={styles.kakaoLogo}
                 accessible={false}

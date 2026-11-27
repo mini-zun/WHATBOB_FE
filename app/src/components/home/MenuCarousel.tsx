@@ -341,7 +341,7 @@ export function MenuCarousel({
 
   return (
     <View style={styles.root}>
-      <GestureDetector gesture={pan}>
+      <GestureDetector gesture={pan} touchAction="pan-y">
         <View style={styles.stage}>
           {CARDS.map((item, i) => (
             <CarouselCard
