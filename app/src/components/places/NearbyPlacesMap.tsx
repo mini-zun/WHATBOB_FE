@@ -1,10 +1,12 @@
 "use dom";
 
 import type { DOMProps } from "expo/dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { loadKakaoMaps } from "@/lib/kakao_maps";
 import type { NearbyPlace } from "@/types/places";
 import { Asset } from "expo-asset";
+
+type MapPlace = Pick<NearbyPlace, "kakao_place_id" | "name" | "latitude" | "longitude">;
 
 type Props = {
     latitude: number;
@@ -28,6 +30,16 @@ export default function NearbyPlacesMap({
     const [error, setError] = useState<string | null>(null);
     const [mapInstance, setMapInstance] = useState<kakao.maps.Map | null>(null);
     const onSelectPlaceRef = useRef(onSelectPlace);
+    const placesKey = JSON.stringify(places.map((place) => ({
+        kakao_place_id: place.kakao_place_id,
+        name: place.name,
+        latitude: place.latitude,
+        longitude: place.longitude,
+    })));
+    const mapPlaces = useMemo(
+        () => JSON.parse(placesKey) as MapPlace[],
+        [placesKey],
+    );
 
     useEffect(() => {
         onSelectPlaceRef.current = onSelectPlace;
@@ -87,7 +99,7 @@ export default function NearbyPlacesMap({
 
                 const markerImageUrl = Asset.fromModule(require("@/assets/images/mapmaker.png"),).uri;
 
-                places.forEach((place) => {
+                mapPlaces.forEach((place) => {
                     const position = new kakao.maps.LatLng(
                         place.latitude,
                         place.longitude,
@@ -137,7 +149,7 @@ export default function NearbyPlacesMap({
                     bounds.extend(position);
                 });
 
-                if (places.length > 0) {
+                if (mapPlaces.length > 0) {
                     map.setBounds(bounds, 40, 40, 40, 40);
                 }
 
@@ -164,12 +176,12 @@ export default function NearbyPlacesMap({
             });
             container.replaceChildren();
         };
-    }, [latitude, longitude, places]);
+    }, [latitude, longitude, mapPlaces]);
 
     useEffect(() => {
         if (!mapInstance || !selectedPlaceId) return;
 
-        const selectedPlace = places.find(
+        const selectedPlace = mapPlaces.find(
             (place) => place.kakao_place_id === selectedPlaceId,
         );
 
@@ -181,7 +193,7 @@ export default function NearbyPlacesMap({
                 selectedPlace.longitude,
             ),
         );
-    }, [mapInstance, selectedPlaceId, places]);
+    }, [mapInstance, selectedPlaceId, mapPlaces]);
 
     return (
         <div style={{ width: "100%", height }}>
