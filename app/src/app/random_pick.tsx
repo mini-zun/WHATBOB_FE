@@ -102,6 +102,17 @@ export default function PickWithFriendScreen() {
     );
   };
 
+  const handleSelectMenu = () => {
+    if (!menu) return;
+    router.push({
+      pathname: "/nearby_places",
+      params: {
+        menuId: String(menu.menu_id),
+        menuName: menu.name,
+      },
+    });
+  };
+
   const handleMoveUp = () => {
     translateY.value = withTiming(-100, { duration: 1000 }, (finished) => {
       if (finished) {
@@ -256,7 +267,7 @@ export default function PickWithFriendScreen() {
               { height: menuOnceShown ? 70 : 0 },
               { marginBottom: menuOnceShown ? 7 : 0 },
             ]}
-            onPress={() => console.log("메뉴 선택!")}
+            onPress={handleSelectMenu}
             disabled={isPicking || !menu}
           >
             <Text style={styles.selectButtonText}>좋아 이 메뉴로!</Text>
