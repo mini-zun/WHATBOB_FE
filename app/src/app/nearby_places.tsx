@@ -11,7 +11,11 @@ import { getCurrentLocation, type CurrentLocation } from "@/lib/location";
 import { getNearbyPlaces, getRoomNearbyPlaces } from "@/lib/places";
 import { parseRoomId } from "@/lib/rooms";
 import { openKakaoDirections } from "@/lib/kakao_directions";
-import { getFoodHistoryOperationKey, recordFoodHistory } from "@/lib/food_history";
+import {
+    getFoodHistoryOperationKey,
+    getRoomFoodHistoryOperationKey,
+    recordFoodHistory,
+} from "@/lib/food_history";
 import type { NearbyPlacesData, SearchRadius } from "@/types/places";
 import type { PlacesViewportHandle } from "@/lib/places_widget";
 
@@ -57,9 +61,11 @@ export default function NearbyPlacesScreen() {
         : null;
     const originLabel = room ? "방장 위치" : "현재 위치";
 
-    const operationKey = isValidMenu
-        ? getFoodHistoryOperationKey(parsedMenuId, recommendationId, mealKey)
-        : null;
+    const operationKey = !isValidMenu
+        ? null
+        : room
+            ? getRoomFoodHistoryOperationKey(room, parsedRoundId, parsedMenuId)
+            : getFoodHistoryOperationKey(parsedMenuId, recommendationId, mealKey);
     const mealStatus = mealSave?.key === operationKey ? mealSave : null;
     const selectedPlace = data?.places.find((place) => place.kakao_place_id === selectedPlaceId);
 
@@ -89,11 +95,11 @@ export default function NearbyPlacesScreen() {
     };
 
     useEffect(() => {
-        if (!isValidMenu || operationKey) return;
+        if (!isValidMenu || room || operationKey) return;
         router.setParams({
             mealKey: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`,
         });
-    }, [isValidMenu, operationKey]);
+    }, [isValidMenu, room, operationKey]);
 
     const handleChoosePlace = useCallback(async (placeId: string) => {
         if (!operationKey || saveInFlight.current) return;
