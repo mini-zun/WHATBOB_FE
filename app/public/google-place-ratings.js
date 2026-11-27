@@ -4,6 +4,38 @@
   const cards = new Map();
   let state = { places: [], selectedPlaceId: null, disabled: true, apiKey: '' };
   let googleLoading = null;
+  const fontSources = new Map();
+
+  function loadFonts(fonts) {
+    if (!fonts || typeof fonts !== 'object') return;
+    for (const family of ['BusanDandiMyeongjoM', 'Cafe24Simplehae']) {
+      if (typeof fonts[family] !== 'string') continue;
+      try {
+        const url = new URL(fonts[family], window.location.href);
+        if (url.origin !== window.location.origin || !['http:', 'https:'].includes(url.protocol)) continue;
+        if (fontSources.get(family) === url.href) continue;
+        const font = new FontFace(family, `url(${JSON.stringify(url.href)})`, { display: 'swap' });
+        document.fonts.add(font);
+        fontSources.set(family, url.href);
+        void font.load().catch(() => {});
+      } catch {}
+    }
+  }
+
+  function loadVisibleRatings() {
+    const viewport = state.viewport;
+    if (!viewport || !Number.isFinite(viewport.top) || !Number.isFinite(viewport.bottom) ||
+        viewport.top < 0 || viewport.bottom <= viewport.top) return;
+    const rootTop = root.getBoundingClientRect().top;
+    state.places.forEach((place) => {
+      const card = cards.get(place.id);
+      if (!card || card.requested || !place.googlePlaceId) return;
+      const rect = card.element.getBoundingClientRect();
+      if (rect.top - rootTop >= viewport.bottom || rect.bottom - rootTop <= viewport.top) return;
+      card.requested = true;
+      void renderRating(card, place);
+    });
+  }
 
   function emit(message) {
     const data = { channel, ...message };
@@ -138,7 +170,7 @@
     choose.onclick = () => { if (!state.disabled) emit({ type: 'select', placeId: place.id }); };
     retry.onclick = () => {
       const latest = state.places.find((item) => item.id === place.id);
-      if (latest) void renderRating(card, latest);
+      if (latest) { card.requested = true; void renderRating(card, latest); }
     };
     return card;
   }
@@ -147,7 +179,7 @@
     if (!data || data.channel !== channel || data.type !== 'update' || !Array.isArray(data.places)) return;
     if (typeof data.apiKey !== 'string' || typeof data.disabled !== 'boolean') return;
     const seen = new Set();
-    const places = data.places.slice(0, 10).filter((place) => {
+    const places = data.places.filter((place) => {
       if (!place || typeof place.id !== 'string' || typeof place.name !== 'string' || typeof place.distance !== 'string' || seen.has(place.id)) return false;
       if (place.googlePlaceId !== null && typeof place.googlePlaceId !== 'string') return false;
       seen.add(place.id);
@@ -155,6 +187,7 @@
     });
     const keyChanged = data.apiKey !== state.apiKey;
     state = { ...data, places };
+    loadFonts(data.fonts);
     for (const [id, card] of cards) {
       if (!seen.has(id)) { card.cleanup?.(); card.element.remove(); cards.delete(id); }
     }
@@ -167,10 +200,15 @@
       card.choose.setAttribute('aria-pressed', String(state.selectedPlaceId === place.id));
       if (root.children[index] !== card.element) root.insertBefore(card.element, root.children[index] || null);
       if (card.googlePlaceId !== place.googlePlaceId || keyChanged) {
+        card.cleanup?.();
+        card.rating.replaceChildren();
+        card.retry.hidden = true;
         card.googlePlaceId = place.googlePlaceId;
-        void renderRating(card, place);
+        card.requested = false;
+        setStatus(card, place.googlePlaceId ? '평점을 불러오는 중…' : '평점 정보 없음');
       }
     });
+    loadVisibleRatings();
     reportHeight();
     emit({ type: 'ready' });
   }

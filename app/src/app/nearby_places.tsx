@@ -28,6 +28,7 @@ export default function NearbyPlacesScreen() {
     const [radiusMenuOpen, setRadiusMenuOpen] = useState(false);
     const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(null);
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+    const [scrollOffset, setScrollOffset] = useState(0);
     const saveInFlight = useRef(false);
     const savedKeys = useRef(new Set<string>());
     const [mealSave, setMealSave] = useState<{
@@ -154,6 +155,8 @@ export default function NearbyPlacesScreen() {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 bounces={false}
+                scrollEventThrottle={100}
+                onScroll={(event) => setScrollOffset(event.nativeEvent.contentOffset.y)}
             >
                 <View style={styles.page}>
                     <View style={styles.header}>
@@ -285,6 +288,7 @@ export default function NearbyPlacesScreen() {
                                             selectedPlaceId={selectedPlaceId}
                                             disabled={!operationKey || mealStatus?.status === "saving"}
                                             onSelectPlace={handleChoosePlace}
+                                            scrollOffset={scrollOffset}
                                         />
                                     )}
                                 </View>

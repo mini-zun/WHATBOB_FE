@@ -1,5 +1,3 @@
-@font-face { font-family: BusanDandiMyeongjoM; src: url('./places-widget/BusanDandiMyeongjoM.otf'); font-display: swap; }
-@font-face { font-family: Cafe24Simplehae; src: url('./places-widget/Cafe24Simplehae-v2.0.otf'); font-display: swap; }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: transparent; }
 body { color: #000; font-family: sans-serif; }

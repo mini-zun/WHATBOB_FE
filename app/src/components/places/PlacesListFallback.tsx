@@ -4,10 +4,10 @@ import type { PlacesListProps } from "@/lib/places_widget";
 
 export default function PlacesListFallback({
   places, selectedPlaceId, disabled, onSelectPlace, message,
-}: PlacesListProps & { message: string }) {
+}: PlacesListProps & { message?: string }) {
   return (
     <View style={styles.list}>
-      <Text style={styles.notice} accessibilityLiveRegion="polite">{message}</Text>
+      {message && <Text style={styles.notice} accessibilityLiveRegion="polite">{message}</Text>}
       {places.map((place, index) => (
         <Pressable
           key={place.kakao_place_id}

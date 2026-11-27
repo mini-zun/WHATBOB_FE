@@ -1,4 +1,5 @@
 import type { NearbyPlace } from "@/types/places";
+import { getPlacesWidgetFonts } from "./places_widget_fonts";
 
 export const PLACES_WIDGET_CHANNEL = "whatbob-places-v1";
 
@@ -6,6 +7,7 @@ export type PlacesListProps = {
   places: NearbyPlace[];
   selectedPlaceId: string | null;
   disabled: boolean;
+  scrollOffset?: number;
   onSelectPlace: (placeId: string) => Promise<void>;
 };
 
@@ -16,6 +18,7 @@ export function createPlacesWidgetPayload(props: PlacesListProps) {
     apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ?? "",
     selectedPlaceId: props.selectedPlaceId,
     disabled: props.disabled,
+    fonts: getPlacesWidgetFonts(),
     places: props.places.map((place) => ({
       id: place.kakao_place_id,
       name: place.name,

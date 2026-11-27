@@ -13,7 +13,13 @@ function bridge(env = {}) {
   const code = ts.transpileModule(fs.readFileSync(path.join(rootPath, 'src/lib/places_widget.ts'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS },
   }).outputText;
-  vm.runInNewContext(code, { exports, URL, process: { env } });
+  vm.runInNewContext(code, {
+    exports, URL, process: { env },
+    require(name) {
+      assert.equal(name, './places_widget_fonts');
+      return { getPlacesWidgetFonts: () => ({}) };
+    },
+  });
   return exports;
 }
 
@@ -27,7 +33,11 @@ function page({ failGoogle = false } = {}) {
     replaceChildren(...children) { for (const child of [...this.children]) child.remove(); this.append(...children); }
     setAttribute(name, value) { this.attributes[name] = value; }
     addEventListener(name, listener) { this.listeners[name] = listener; }
-    getBoundingClientRect() { return { height: this.children.length * 150 }; }
+    getBoundingClientRect() {
+      const top = this.parent?.tag === 'main' ? this.parent.children.indexOf(this) * 150 : 0;
+      const height = this.tag === 'section' ? 150 : this.children.length * 150;
+      return { top, height, bottom: top + height };
+    }
   }
   const root = new Element('main');
   const messages = [];
@@ -53,7 +63,7 @@ function page({ failGoogle = false } = {}) {
 }
 
 function payload(places, extra = {}) {
-  return { channel: 'whatbob-places-v1', type: 'update', apiKey: 'test-key', disabled: false, selectedPlaceId: null, places, ...extra };
+  return { channel: 'whatbob-places-v1', type: 'update', apiKey: 'test-key', disabled: false, selectedPlaceId: null, viewport: { top: 0, bottom: 20000 }, places, ...extra };
 }
 
 const restaurant = { id: 'kakao-one', name: 'Restaurant', distance: '0.1km', googlePlaceId: 'google-one' };
@@ -134,4 +144,23 @@ test('messages from another origin or window cannot change the list', () => {
   p.listeners.message({ origin: p.window.location.origin, source: p.window.parent, data });
   assert.equal(p.root.children.length, 1);
   assert.ok(p.messages.some((message) => message.type === 'height' && message.height > 0));
+});
+
+test('all places remain visible in the list but only cards in the viewport request ratings', async () => {
+  const p = page();
+  const places = Array.from({ length: 12 }, (_, index) => ({ ...restaurant, id: `place-${index}`, googlePlaceId: `google-${index}` }));
+  p.window.WhatbobPlaces.update(payload(places, { viewport: { top: 0, bottom: 0 } }));
+  await flush();
+  assert.equal(p.root.children.length, 12);
+  assert.equal(p.imports, 0);
+  p.window.WhatbobPlaces.update(payload(places, { viewport: { top: 0, bottom: 150 } }));
+  await flush();
+  assert.equal(p.elements.filter((element) => element.tag === 'gmp-place-details-compact').length, 1);
+  p.window.WhatbobPlaces.update(payload(places, { viewport: { top: 150, bottom: 300 } }));
+  await flush();
+  assert.equal(p.elements.filter((element) => element.tag === 'gmp-place-details-compact').length, 2);
+  p.window.WhatbobPlaces.update(payload(places, { viewport: { top: 0, bottom: 150 } }));
+  await flush();
+  assert.equal(p.elements.filter((element) => element.tag === 'gmp-place-details-compact').length, 2);
+  assert.equal(p.imports, 1);
 });
