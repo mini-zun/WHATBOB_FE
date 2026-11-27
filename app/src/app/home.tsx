@@ -91,22 +91,13 @@ export default function HomeScreen() {
             contentFit="contain"
             style={styles.topLogo}
           />
-          <View style={styles.headerRight}>
-            <Pressable onPress={() => console.log("알람 페이지로 이동")}>
-              <Image
-                source={require("@/assets/images/alarm_button.png")}
-                contentFit="contain"
-                style={styles.alarmButton}
-              />
-            </Pressable>
-            <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
-              <Image
-                source={require("@/assets/images/menu_button.png")}
-                contentFit="contain"
-                style={styles.menuButton}
-              />
-            </Pressable>
-          </View>
+          <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
+            <Image
+              source={require("@/assets/images/menu_button.png")}
+              contentFit="contain"
+              style={styles.menuButton}
+            />
+          </Pressable>
         </View>
         <ScrollView contentContainerStyle={styles.page} bounces={false}>
           <View style={styles.hero}>

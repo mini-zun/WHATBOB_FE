@@ -259,7 +259,7 @@ export function FoodResultCarousel({
       style={[styles.root, disabled && styles.noTouch]}
       aria-disabled={disabled}
     >
-      <GestureDetector gesture={pan}>
+      <GestureDetector gesture={pan} touchAction="pan-y">
         <View style={styles.stage}>
           {menus.map((menu, i) => (
             <FoodCard
