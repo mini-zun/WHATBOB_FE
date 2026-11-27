@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   SafeAreaView,
@@ -7,19 +7,24 @@ import {
 } from "react-native-safe-area-context";
 
 import { Colors, Fonts } from "@/constants/theme";
-import { Feather } from "@expo/vector-icons";
 import { MenuCarousel } from "@/components/home/MenuCarousel";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { SideMenuDrawer } from "@/components/home/SideMenuDrawer";
 import { getPopularFood, type PopularFood } from "@/lib/food_popular";
+import { getRecentFood, type RecentFood } from "@/lib/food_recent";
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [menuOpen, setMenuOpen] = useState(false);
+
   const [popularMenus, setPopularMenus] = useState<PopularFood[]>([]);
   const [popularLoading, setPopularLoading] = useState(true);
   const [popularError, setPopularError] = useState<string | null>(null);
+
+  const [meals, setMeals] = useState<RecentFood[]>([]);
+  const [mealsLoading, setMealsLoading] = useState(true);
+  const [mealsError, setMealsError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -41,6 +46,33 @@ export default function HomeScreen() {
 
     return () => controller.abort();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController();
+      setMealsLoading(true);
+      setMealsError(null);
+
+      getRecentFood(controller.signal)
+        .then((data) => {
+          setMeals(data.items);
+          setMealsError(null);
+        })
+        .catch((e) => {
+          if (controller.signal.aborted) return;
+          setMealsError(
+            e instanceof Error
+              ? e.message
+              : "최근에 먹은 기록을 불러오지 못했어요.",
+          );
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setMealsLoading(false);
+        });
+
+      return () => controller.abort();
+    }, []),
+  );
 
   const handleToPickWithFriend = () => {
     router.push("/pick_with_friend");
@@ -121,28 +153,53 @@ export default function HomeScreen() {
               <View style={styles.menusTitleView}>
                 <Text style={styles.smallMenuText}>최근에 먹은 메뉴</Text>
               </View>
-              <ScrollView
-                horizontal
-                style={styles.menuList}
-                contentContainerStyle={styles.menuContent}
-                showsHorizontalScrollIndicator={false}
-              >
-                <MenuBox menu={"비빔밥"} />
-                <MenuBox menu={"쌀국수"} />
-                <MenuBox menu={"뚝배기"} />
-                <MenuBox menu={"김치볶음밥"} />
-              </ScrollView>
+              {mealsLoading ? (
+                <View style={styles.marginSpace}>
+                  <Text style={styles.menuStatusText}>불러오는 중...</Text>
+                </View>
+              ) : mealsError ? (
+                <View style={styles.marginSpace}>
+                  <Text style={styles.menuStatusText}>{mealsError}</Text>
+                </View>
+              ) : meals.length === 0 ? (
+                <View style={styles.marginSpace}>
+                  <Text style={styles.menuStatusText}>
+                    아직 먹은 메뉴가 없어요.
+                  </Text>
+                </View>
+              ) : (
+                <ScrollView
+                  horizontal
+                  style={styles.menuList}
+                  contentContainerStyle={styles.menuContent}
+                  showsHorizontalScrollIndicator={false}
+                >
+                  {meals.map((item) => (
+                    <MenuBox
+                      key={item.food_kind_id}
+                      menu={item.menu_name}
+                      image={item.image_url}
+                    />
+                  ))}
+                </ScrollView>
+              )}
               <View style={styles.menusTitleView}>
                 <Text style={styles.smallMenuText}>요즘 인기 메뉴</Text>
               </View>
               {popularLoading ? (
-                <Text style={styles.menuStatusText}>불러오는 중...</Text>
+                <View style={styles.marginSpace}>
+                  <Text style={styles.menuStatusText}>불러오는 중...</Text>
+                </View>
               ) : popularError ? (
-                <Text style={styles.menuStatusText}>{popularError}</Text>
+                <View style={styles.marginSpace}>
+                  <Text style={styles.menuStatusText}>{popularError}</Text>
+                </View>
               ) : popularMenus.length === 0 ? (
-                <Text style={styles.menuStatusText}>
-                  아직 인기 메뉴가 없어요.
-                </Text>
+                <View style={styles.marginSpace}>
+                  <Text style={styles.menuStatusText}>
+                    아직 인기 메뉴가 없어요.
+                  </Text>
+                </View>
               ) : (
                 <ScrollView
                   horizontal
@@ -334,7 +391,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.bodyDesc,
     fontSize: 12,
     color: Colors.textBrown,
-    alignSelf: "flex-start",
+    alignSelf: "center",
     marginBottom: 14,
   },
   menusTitleView: {
@@ -344,8 +401,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-  plusButton: {
-    width: 11,
-    height: 11,
+  marginSpace: {
+    height: 77,
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 14,
   },
 });

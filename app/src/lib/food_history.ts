@@ -1,4 +1,4 @@
-import { ApiError, apiFetch } from "./api";
+import { ApiError, apiFetch, resolveImageUrl } from "./api";
 
 export type FoodHistory = {
   id: number;
@@ -6,6 +6,7 @@ export type FoodHistory = {
   menu_name: string;
   eaten_at: string;
   created_at: string;
+  image_url: string;
 };
 
 export type FoodHistoryData = {
@@ -94,7 +95,13 @@ export async function getFoodHistory(
       0,
     );
   }
-  return result.data;
+  return {
+    ...result.data,
+    items: result.data.items.map((item) => ({
+      ...item,
+      image_url: resolveImageUrl(item.image_url),
+    })),
+  };
 }
 
 const DAY = 24 * 60 * 60 * 1000;
