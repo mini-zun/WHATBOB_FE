@@ -9,6 +9,7 @@ import NearbyPlacesTitle from "@/components/places/NearbyPlacesTitle";
 import { Colors, Fonts } from "@/constants/theme";
 import { getCurrentLocation, type CurrentLocation } from "@/lib/location";
 import { getNearbyPlaces } from "@/lib/places";
+import { openKakaoDirections } from "@/lib/kakao_directions";
 import { getFoodHistoryOperationKey, recordFoodHistory } from "@/lib/food_history";
 import type { NearbyPlacesData, SearchRadius } from "@/types/places";
 import type { PlacesViewportHandle } from "@/lib/places_widget";
@@ -29,6 +30,9 @@ export default function NearbyPlacesScreen() {
     const [radiusMenuOpen, setRadiusMenuOpen] = useState(false);
     const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(null);
     const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+    const [openingDirections, setOpeningDirections] = useState(false);
+    const openingDirectionsRef = useRef(false);
+    const [directionsError, setDirectionsError] = useState<{ placeId: string; message: string } | null>(null);
     const placesViewportRef = useRef<PlacesViewportHandle | null>(null);
     const saveInFlight = useRef(false);
     const savedKeys = useRef(new Set<string>());
@@ -47,6 +51,32 @@ export default function NearbyPlacesScreen() {
         ? getFoodHistoryOperationKey(parsedMenuId, recommendationId, mealKey)
         : null;
     const mealStatus = mealSave?.key === operationKey ? mealSave : null;
+    const selectedPlace = data?.places.find((place) => place.kakao_place_id === selectedPlaceId);
+
+    const selectPlace = useCallback((placeId: string) => {
+        setDirectionsError(null);
+        setSelectedPlaceId(placeId);
+    }, []);
+
+    const handleOpenDirections = async () => {
+        if (!selectedPlace || !currentLocation || isLoading ||
+            saveInFlight.current || openingDirectionsRef.current) return;
+
+        openingDirectionsRef.current = true;
+        setOpeningDirections(true);
+        setDirectionsError(null);
+        try {
+            await openKakaoDirections(selectedPlace, currentLocation);
+        } catch (error) {
+            setDirectionsError({
+                placeId: selectedPlace.kakao_place_id,
+                message: error instanceof Error ? error.message : "카카오맵 길찾기를 열지 못했어요.",
+            });
+        } finally {
+            openingDirectionsRef.current = false;
+            setOpeningDirections(false);
+        }
+    };
 
     useEffect(() => {
         if (!isValidMenu || operationKey) return;
@@ -58,7 +88,7 @@ export default function NearbyPlacesScreen() {
     const handleChoosePlace = useCallback(async (placeId: string) => {
         if (!operationKey || saveInFlight.current) return;
 
-        setSelectedPlaceId(placeId);
+        selectPlace(placeId);
         if (savedKeys.current.has(operationKey)) {
             setMealSave({ key: operationKey, status: "saved" });
             return;
@@ -82,7 +112,7 @@ export default function NearbyPlacesScreen() {
         } finally {
             saveInFlight.current = false;
         }
-    }, [operationKey, parsedMenuId]);
+    }, [operationKey, parsedMenuId, selectPlace]);
 
     useEffect(() => {
         if (!isValidMenu) return;
@@ -94,6 +124,7 @@ export default function NearbyPlacesScreen() {
             setError(null);
             setData(null);
             setSelectedPlaceId(null);
+            setDirectionsError(null);
             setCurrentLocation(null);
 
             try {
@@ -242,14 +273,44 @@ export default function NearbyPlacesScreen() {
                                         places={data?.places ?? []}
                                         selectedPlaceId={selectedPlaceId}
                                         onSelectPlace={async (placeId) => {
-                                            setSelectedPlaceId(placeId);
+                                            selectPlace(placeId);
                                         }}
                                         dom={{
                                             scrollEnabled: false,
                                             style: { width: "100%", height: 230 },
                                         }}
                                     />
+                                    {!isLoading && selectedPlace && (
+                                        <Pressable
+                                            accessibilityRole="button"
+                                            accessibilityLabel={`${selectedPlace.name}까지 카카오맵 도보 길찾기`}
+                                            hitSlop={6}
+                                            accessibilityState={{
+                                                disabled: openingDirections || mealStatus?.status === "saving",
+                                                busy: openingDirections,
+                                            }}
+                                            disabled={openingDirections || mealStatus?.status === "saving"}
+                                            onPress={(event) => {
+                                                event.stopPropagation();
+                                                void handleOpenDirections();
+                                            }}
+                                            style={({ pressed }) => [
+                                                styles.directionsButton,
+                                                pressed && styles.directionsPressed,
+                                                (openingDirections || mealStatus?.status === "saving") && styles.directionsDisabled,
+                                            ]}
+                                        >
+                                            <Text style={styles.directionsButtonText}>
+                                                {openingDirections ? "여는 중…" : "카카오맵 길찾기"}
+                                            </Text>
+                                        </Pressable>
+                                    )}
                                 </View>
+                            )}
+                            {!isLoading && selectedPlace && directionsError?.placeId === selectedPlace.kakao_place_id && (
+                                <Text accessibilityRole="alert" style={styles.directionsError}>
+                                    {directionsError.message}
+                                </Text>
                             )}
                             {isLoading ? (
                                 <Text accessibilityState={{ busy: true }}>
@@ -411,6 +472,7 @@ const styles = StyleSheet.create({
     },
 
     mapFrame: {
+        position: "relative",
         height: 236,
         flexShrink: 0,
         marginHorizontal: 1,
@@ -418,6 +480,46 @@ const styles = StyleSheet.create({
         borderColor: Colors.backOrange,
         backgroundColor: Colors.backOrange,
         boxShadow: "0px 4px 4px rgba(0, 0, 0, 0.25)",
+    },
+
+    directionsButton: {
+        position: "absolute",
+        top: 8,
+        right: 8,
+        zIndex: 10,
+        elevation: 3,
+        minHeight: 32,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 7,
+        borderWidth: 1,
+        borderColor: Colors.borderBrown,
+        backgroundColor: Colors.backOrange,
+        alignItems: "center",
+        justifyContent: "center",
+        boxShadow: "0px 2px 4px rgba(106, 57, 7, 0.12)",
+    },
+
+    directionsPressed: {
+        backgroundColor: Colors.lightBrown,
+        transform: [{ scale: 0.98 }],
+    },
+
+    directionsDisabled: { opacity: 0.6 },
+
+    directionsButtonText: {
+        fontFamily: Fonts.bodyMedium,
+        fontSize: 13,
+        lineHeight: 18,
+        color: Colors.textBrown,
+    },
+
+    directionsError: {
+        marginTop: 8,
+        marginHorizontal: 12,
+        fontFamily: Fonts.bodyRegular,
+        fontSize: 14,
+        color: Colors.errorText,
     },
 
     list: {
